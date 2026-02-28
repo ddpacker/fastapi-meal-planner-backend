@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Application configuration loaded from environment variables or a .env file."""
 
-    database_url: str = "postgresql+psycopg2://postgres:postgres@localhost:5432/meal_planner"
+    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/meal_planner"
 
     secret_key: str = "change-me"
     algorithm: str = "HS256"
