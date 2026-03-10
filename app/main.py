@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.config import get_settings
-from app.routers import auth, meal_plans, recipes
+from app.routers import auth, chat, meal_plans, recipes
 
 
 logger = logging.getLogger("meal_planner")
@@ -31,6 +31,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(meal_plans.router)
     app.include_router(recipes.router)
+    app.include_router(chat.router)
 
     @app.get("/health", tags=["health"])
     async def health_check() -> dict[str, str]:
