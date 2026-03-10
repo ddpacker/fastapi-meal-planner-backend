@@ -41,10 +41,6 @@ class PlannedMeal(Base):
     day_index: Mapped[int] = mapped_column(Integer, nullable=False)  # 0–6
     meal_name: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="draft")
-    # Optional reference to a reusable recipe
-    recipe_id: Mapped[int | None] = mapped_column(
-        ForeignKey("recipes.id"), nullable=True, index=True
-    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -54,5 +50,23 @@ class PlannedMeal(Base):
     )
 
     meal_plan_week = relationship("MealPlanWeek", back_populates="planned_meals")
-    recipe = relationship("Recipe", back_populates="planned_meals")
+    recipes = relationship(
+        "PlannedMealRecipe", back_populates="planned_meal", cascade="all, delete-orphan"
+    )
+
+
+class PlannedMealRecipe(Base):
+    """Association table linking a planned meal to one or more recipes (entree/side/etc.)."""
+
+    __tablename__ = "planned_meal_recipes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    planned_meal_id: Mapped[int] = mapped_column(
+        ForeignKey("planned_meals.id"), index=True, nullable=False
+    )
+    recipe_id: Mapped[int] = mapped_column(ForeignKey("recipes.id"), index=True, nullable=False)
+    role: Mapped[str | None] = mapped_column(String(50), nullable=True)  # e.g., entree, side
+
+    planned_meal = relationship("PlannedMeal", back_populates="recipes")
+    recipe = relationship("Recipe", back_populates="planned_meal_links")
 

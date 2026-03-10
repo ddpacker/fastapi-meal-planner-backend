@@ -25,7 +25,9 @@ class Recipe(Base):
     )
 
     user = relationship("User", back_populates="recipes")
-    planned_meals = relationship("PlannedMeal", back_populates="recipe")
+    planned_meal_links = relationship(
+        "PlannedMealRecipe", back_populates="recipe", cascade="all, delete-orphan"
+    )
     ingredients = relationship(
         "RecipeIngredient", back_populates="recipe", cascade="all, delete-orphan"
     )
