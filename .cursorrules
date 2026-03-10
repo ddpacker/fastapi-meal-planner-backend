@@ -95,3 +95,7 @@ GroceryList → GroceryItem (1:many, cascade delete)
 - Do not use `text()` raw SQL — use ORM queries.
 - Do not call Anthropic API directly from routers or models.
 - Do not expose password_hash in any response schema.
+
+## Workflow reminders
+
+- After any intentional deviation from the plan, remind me to update plan.md, README.md, and .cursorrules before ending the session.
