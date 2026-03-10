@@ -1,0 +1,97 @@
+# FastAPI Meal Planner — Cursor Rules
+
+## Project
+FastAPI + PostgreSQL backend. Anthropic generates recipes/nutrition. JWT auth. No frontend — pure JSON API.
+
+## Stack (pinned versions)
+- Python 3.11+
+- fastapi==0.115.0, uvicorn[standard]==0.30.0
+- SQLAlchemy==2.0.30 (async-compatible ORM), alembic==1.13.2
+- psycopg[binary]==3.3.3 (psycopg3 — NOT psycopg2 syntax)
+- pydantic==2.9.0, pydantic-settings==2.5.0
+- passlib[bcrypt]==1.7.4, python-jose[cryptography]==3.3.0
+- anthropic==0.40.0, httpx==0.27.0
+- pytest==8.2.0
+
+## Directory layout (do not deviate)
+app/
+  main.py          # app factory, router includes, lifespan
+  config.py        # Settings via pydantic-settings (.env)
+  db/
+    session.py     # engine, SessionLocal, get_db dependency
+    base.py        # Base + all model imports (for Alembic)
+  models/          # SQLAlchemy models: chat, grocery, meal_plan, nutrition, recipe, user
+  schemas/         # Pydantic v2 schemas 
+  routers/         # auth, chat, grocery, meal_plans, recipes
+  services/        # meal_plan_service, recipe_service, grocery_service, nutrition_service
+  clients/
+    anthropic_client.py   # thin SDK wrapper; methods: generate_recipes, chat_modify
+  utils/
+    prompt_templates.py   # all prompt strings live here, nowhere else
+alembic/           # migrations only — no business logic
+
+## Coding conventions
+- Use SQLAlchemy 2.0 style (`select()`, `session.execute()`, mapped_column) — not legacy 1.x style.
+- Pydantic v2 syntax only (`model_config = ConfigDict(...)`, `model_validate`, not `Config` class or `.parse_obj`).
+- Settings loaded once via `pydantic-settings`; access via `from app.config import settings`. Never `os.environ` directly.
+- All DB access through `get_db` dependency injection — no module-level sessions.
+- Services take `db: Session` as first arg; routers call services, never ORM directly.
+- JWT secret and Anthropic API key from env only — never hardcode.
+- Passwords hashed with passlib bcrypt — never store plaintext.
+- All endpoints require `current_user` dependency except `/auth/register` and `/auth/login`.
+- Filter every query by `user_id` — no cross-user data leakage.
+
+## Anthropic integration rules
+- All SDK calls go through `AnthropicClient` in `app/clients/anthropic_client.py`.
+- Model name from `settings.anthropic_model` (default `claude-3-5-sonnet-20240620`).
+- Recipe generation prompts must request structured JSON output.
+- Parse AI output into Pydantic schemas before any DB write; catch `ValidationError` and return 422.
+- Mock `AnthropicClient` in all tests — never make real API calls in tests.
+- Log request metadata (model, tokens used) but never log full prompt/response content.
+
+## Key data relationships
+User → MealPlanWeek (1:many, cascade delete)
+User → Recipe (1:many, cascade delete)
+User → ChatSession (1:many, cascade delete)
+
+MealPlanWeek → PlannedMeal (1:many, cascade delete)
+MealPlanWeek → GroceryList (1:many, cascade delete)
+
+PlannedMeal → PlannedMealRecipe (1:many, cascade delete)
+Recipe → PlannedMealRecipe (1:many, cascade delete)
+# PlannedMeal↔Recipe is many:many via PlannedMealRecipe; PlannedMealRecipe.role = entree|side|etc.
+
+Recipe → RecipeIngredient (1:many, cascade delete)
+Recipe → NutritionInfo (1:1, uselist=False, cascade delete)
+Recipe → ChatSession (1:many, cascade delete)
+
+ChatSession → ChatMessage (1:many, cascade delete)
+
+GroceryList → GroceryItem (1:many, cascade delete)
+
+## Build order (follow strictly — later tasks depend on earlier)
+1. setup-fastapi-project  — skeleton, config, health endpoint
+2. db-and-models          — SQLAlchemy models + Alembic env
+3. schemas-and-routers    — Pydantic schemas + router stubs
+4. anthropic-integration  — client wrapper + prompt templates + parsing
+5. grocery-and-nutrition-services — aggregation + AI nutrition
+6. tests-and-docs         — pytest suite + OpenAPI cleanup
+
+## Testing
+- pytest + httpx `TestClient`; fixtures in `conftest.py`.
+- Use in-memory SQLite or a test Postgres DB via env override.
+- One test file per router; one per service with non-trivial logic.
+- Always mock `AnthropicClient`; assert prompt content and parsed output.
+
+## Response format
+- Success: return Pydantic schema (FastAPI serializes automatically).
+- 404: `raise HTTPException(status_code=404, detail="...")`.
+- Validation errors: let Pydantic/FastAPI return 422 automatically.
+- No custom envelope wrappers (no `{"data": ..., "status": "ok"}`).
+
+## Do not
+- Do not add dependencies not in requirements.txt without explicit instruction.
+- Do not put business logic in routers or prompt strings outside `prompt_templates.py`.
+- Do not use `text()` raw SQL — use ORM queries.
+- Do not call Anthropic API directly from routers or models.
+- Do not expose password_hash in any response schema.
