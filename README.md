@@ -67,3 +67,19 @@ uvicorn app.main:app --reload
 The API will be available at `http://localhost:8000`. Open `http://localhost:8000/docs` for the interactive
 Swagger UI.
 
+### Roadmap
+
+**Backend API**
+- [X] Project skeleton & health endpoint
+- [X] Database models & Alembic migrations
+- [X] Pydantic schemas & router stubs
+- [ ] Anthropic integration & prompt templates
+- [ ] Grocery & nutrition services
+- [ ] Tests & OpenAPI documentation
+
+**Future milestones**
+- [ ] Angular web client
+- [ ] Recipe rating system (thumbs up/down per generated recipe)
+- [ ] RAG layer via pgvector (approved recipes embedded and retrieved as few-shot context)
+- [ ] Swap Anthropic for local Llama model (provider-agnostic AI layer)
+- [ ] Mobile client
