@@ -90,8 +90,11 @@ flowchart TD
     - Fields: `id`, `user_id`, `start_date`, `end_date`, `title`, timestamps.
   - `PlannedMeal` – one of the 7 meals in the week.
     - Fields: `id`, `meal_plan_week_id`, `day_index` (0–6), `meal_name` (e.g., "Chicken Tacos"), `status` (draft/final), timestamps.
-  - `Recipe` – generated recipe attached to a `PlannedMeal`.
-    - Fields: `id`, `planned_meal_id`, `title`, `instructions` (text/JSON blocks), `servings`, `source_model`, timestamps.
+  - `Recipe` – a recipe owned by a `User`, reusable across multiple meal plans.
+    - Fields: `id`, `user_id`, `title`, `instructions` (text/JSON blocks), `servings`, `source_model`, timestamps.
+  - `PlannedMealRecipe` – join table linking a `PlannedMeal` to one or more `Recipe` rows.
+    - Fields: `id`, `planned_meal_id`, `recipe_id`, `role` (e.g. entree/side).
+    - A `PlannedMeal` can have multiple recipes; a `Recipe` can appear in multiple planned meals.
 
 - **Ingredients & grocery items**
   - `RecipeIngredient`
