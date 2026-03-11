@@ -27,41 +27,44 @@ to generate recipes, support per-meal chat refinement, build grocery lists, and 
 
 ### Getting started
 
-1. **Create and activate a virtual environment**
+1. **Create a virtual environment with Python 3.12**
 
 ```bash
-python -m venv .venv
-.venv\Scripts\activate  # Windows
-source .venv/bin/activate  # Unix
+uv venv --python 3.12
 ```
-
-2. **Install dependencies**
+2. **Activate the venv**
 
 ```bash
-pip install -r requirements.txt
+.venv\Scripts\activate
 ```
 
-3. **Configure environment**
+3. **Install dependencies**
+
+```bash
+uv sync
+```
+
+4. **Configure environment**
 
 Create a `.env` file in the project root:
 
 ```bash
-DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/meal_planner
+DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/meal_planner
 SECRET_KEY=change-me
 ANTHROPIC_API_KEY=your-key-here
 ANTHROPIC_MODEL=claude-3-5-sonnet-20240620
 ```
 
-4. **Run migrations**
+5. **Run migrations**
 
 ```bash
-alembic upgrade head
+uv run alembic upgrade head
 ```
 
-5. **Run the development server**
+6. **Run the development server**
 
 ```bash
-uvicorn app.main:app --reload
+uv run uvicorn app.main:app --reload
 ```
 
 The API will be available at `http://localhost:8000`. Open `http://localhost:8000/docs` for the interactive
