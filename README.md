@@ -81,7 +81,7 @@ Swagger UI.
 
 **Infrastructure**
 - [X] Local containerization
-- [ ] Configure GitHub Actions OIDC and application Managed Identity for secretless Azure access
+- [X] Configure GitHub Actions OIDC and application Managed Identity for secretless Azure access
 - [ ] Provision Azure Container Registry with token-based access
 - [ ] Configure Azure VNet and Private Endpoints for database and Key Vault
 - [ ] Deploy Azure Database for PostgreSQL within the VNet
