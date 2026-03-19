@@ -23,7 +23,7 @@ to generate recipes, support per-meal chat refinement, build grocery lists, and 
 - **Networking:** Azure Virtual Network - Private Endpoints ensure the application, database, and Key Vault are entirely isolated from the public internet
 - **Observability:** Azure Monitor and Application Insights - Tracing and performance metrics
 
-## DevOps and Tooling
+### DevOps and Tooling
 
 - **CI/CD:** GitHub Actions with OpenID Connect - Secretless deployment to Azure Container Registry
 - **Package Management:** uv - Deterministic, high-speed dependency management
@@ -77,7 +77,59 @@ uv run uvicorn app.main:app --reload
 The API will be available at `http://localhost:8000`. Open `http://localhost:8000/docs` for the interactive
 Swagger UI.
 
-### Roadmap
+## Infrastructure Setup
+
+### Azure Configuration
+
+1. **Create Resource Group**
+```bash
+   az group create --name rg-fastapi-meal-planner-dev --location eastus
+```
+
+2. **Create Service Principal**
+```bash
+    CLIENT_ID=$(az ad app create --display-name "fastapi-meal-planner-gha" --query appId -o tsv)
+
+    az ad sp create --id $CLIENT_ID
+```
+
+3. **Set Up Federated Identity (for OIDC)**
+```bash
+    az ad app federated-credential create \
+      --id $CLIENT_ID \
+      --parameters '{
+        "name": "gha-main-branch-trust",
+        "issuer": "https://token.actions.githubusercontent.com",
+        "subject": "repo:<your-github-org>/<your-repo>:ref:refs/heads/master",
+        "description": "Trusts GitHub Actions running on the main branch",
+        "audiences": ["api://AzureADTokenExchange"]
+      }'
+```
+
+4. **Assign Permissions**
+```bash
+    SP_OBJECT_ID=$(az ad sp show --id $CLIENT_ID --query id -o tsv)
+       az role assignment create \
+         --assignee  $SP_OBJECT_ID \
+         --role Contributor \
+         --scope /subscriptions//resourceGroups/rg-fastapi-meal-planner-dev
+```
+
+5. **Add GitHub Secrets**
+```bash
+    az ad app show --id $CLIENT_ID --query appId -o tsv    # AZURE_CLIENT_ID
+    az account show --query tenantId -o tsv                # AZURE_TENANT_ID
+    az account show --query id -o tsv                      # AZURE_SUBSCRIPTION_ID
+```
+
+   - `AZURE_CLIENT_ID` → Your app registration's Application (client) ID
+   - `AZURE_TENANT_ID` → Your Azure tenant ID
+   - `AZURE_SUBSCRIPTION_ID` → Your Azure subscription ID
+
+### Github Actions Workflows
+- **test-azure-connection** - Check to ensure GHA is able to connect to your Azure resource group
+
+## Roadmap
 
 **Infrastructure**
 - [X] Local containerization
