@@ -88,10 +88,8 @@ Swagger UI.
 
 2. **Create Service Principal**
 ```bash
-   # Create app registration
     CLIENT_ID=$(az ad app create --display-name "fastapi-meal-planner-gha" --query appId -o tsv)
 
-    # Create service principal from the app
     az ad sp create --id $CLIENT_ID
 ```
 
