@@ -12,6 +12,24 @@ to generate recipes, support per-meal chat refinement, build grocery lists, and 
 - **Grocery list generation** from all ingredients in a week.
 - **Basic nutrition estimates** per recipe.
 
+### Infrastructure
+
+- **Cloud Provider:** Azure
+- **Compute:** Azure Container Apps - Scalable serverless container hosting for cost optimization
+- **Database:** Azure Database for PostgreSQL - Relational storage with robust vector support. Private Link enables secure network isolation
+- **Security:**
+    - Azure Key Vault - Centralized secret management for Anthropic keys and database credentials
+    - Managed Identity - Passwordless authentication between application and Azure resources
+- **Networking:** Azure Virtual Network - Private Endpoints ensure the application, database, and Key Vault are entirely isolated from the public internet
+- **Observability:** Azure Monitor and Application Insights - Tracing and performance metrics
+
+## DevOps and Tooling
+
+- **CI/CD:** GitHub Actions with OpenID Connect - Secretless deployment to Azure Container Registry
+- **Package Management:** uv - Deterministic, high-speed dependency management
+- **Containerization:** Docker - Multi-stage builds utilizing layer caching to minimize image size and reduce the production attack surface
+- **Database Migrations:** Alembic - Schema versioning managed via container script. Synchronizes state between PostgreSQL schema and Pydantic models
+
 ### Project layout
 
 - `app/main.py` – FastAPI application, router registration, startup.
@@ -27,24 +45,13 @@ to generate recipes, support per-meal chat refinement, build grocery lists, and 
 
 ### Getting started
 
-1. **Create a virtual environment with Python 3.12**
-
-```bash
-uv venv --python 3.12
-```
-2. **Activate the venv**
-
-```bash
-.venv\Scripts\activate
-```
-
-3. **Install dependencies**
+1. **Install dependencies and setup environment**
 
 ```bash
 uv sync
 ```
 
-4. **Configure environment**
+2. **Configure environment**
 
 Create a `.env` file in the project root:
 
@@ -55,13 +62,13 @@ ANTHROPIC_API_KEY=your-key-here
 ANTHROPIC_MODEL=claude-3-5-sonnet-20240620
 ```
 
-5. **Run migrations**
+3. **Run migrations**
 
 ```bash
 uv run alembic upgrade head
 ```
 
-6. **Run the development server**
+4. **Run the development server**
 
 ```bash
 uv run uvicorn app.main:app --reload
@@ -71,6 +78,17 @@ The API will be available at `http://localhost:8000`. Open `http://localhost:800
 Swagger UI.
 
 ### Roadmap
+
+**Infrastructure**
+- [X] Local containerization
+- [ ] Configure GitHub Actions OIDC and application Managed Identity for secretless Azure access
+- [ ] Provision Azure Container Registry with token-based access
+- [ ] Configure Azure VNet and Private Endpoints for database and Key Vault
+- [ ] Deploy Azure Database for PostgreSQL within the VNet
+- [ ] Deploy Azure Container Apps within the VNet and configure horizontal autoscaling
+- [ ] Configure RBAC for Azure Key Vault and migrate secrets
+- [ ] Finalize GitHub Actions workflow to build, push to ACR, and trigger ACA revisions
+- [ ] Enable Application Insights and Log Analytics for distributed tracing and log aggregation
 
 **Backend API**
 - [X] Project skeleton & health endpoint
@@ -86,3 +104,5 @@ Swagger UI.
 - [ ] RAG layer via pgvector (approved recipes embedded and retrieved as few-shot context)
 - [ ] Swap Anthropic for local Llama model (provider-agnostic AI layer)
 - [ ] Mobile client
+- [ ] Distroless?
+- [ ] Integrate Alembic migrations into deployment workflow
