@@ -83,7 +83,8 @@ Swagger UI.
 
 1. **Create Resource Group**
 ```bash
-   az group create --name rg-fastapi-meal-planner-dev --location eastus
+    rgName=rg-fastapi-meal-planner-dev
+    az group create --name $rgName --location eastus
 ```
 
 2. **Create Service Principal**
@@ -125,6 +126,38 @@ Swagger UI.
    - `AZURE_CLIENT_ID` → Your app registration's Application (client) ID
    - `AZURE_TENANT_ID` → Your Azure tenant ID
    - `AZURE_SUBSCRIPTION_ID` → Your Azure subscription ID
+
+6. **Create VNets and Subnets Within Azure RG**
+```bash
+    vnetName=vnet-meal-planner-dev
+    vnetAddressPrefix=10.0.0.0/16
+    rgName=rg-fastapi-meal-planner-dev
+
+    az network vnet create \
+    --name $vnetName \
+    --resource-group $rgName \
+    --address-prefixes $vnetAddressPrefix
+
+    az network vnet subnet create \
+    --name snet-meal-planner-api-dev \
+    --resource-group $rgName \
+    --vnet-name $vnetName \
+    --address-prefixes 10.0.1.0/24
+
+    az network vnet subnet create \
+    --name snet-meal-planner-db-dev \
+    --resource-group $rgName \
+    --vnet-name $vnetName \
+    --address-prefixes 10.0.2.0/24
+
+    # This subnet is for future async services: vector embedding, bulk recipe operations, etc.
+    # Currently unused but provisioned for future development.
+    az network vnet subnet create \
+    --name snet-meal-planner-workers-dev \
+    --resource-group $rgName \
+    --vnet-name $vnetName \
+    --address-prefixes 10.0.3.0/24
+```
 
 ### Github Actions Workflows
 - **test-azure-connection** - Check to ensure GHA is able to connect to your Azure resource group
