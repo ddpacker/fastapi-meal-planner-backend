@@ -12,17 +12,17 @@ uv run pytest
 uv run alembic upgrade head
 ```
 
-## Key files
+## Coding standards
 
-@.cursor/rules/general.mdc
-@.cursor/rules/python.mdc
-@.cursor/rules/api.mdc
+@.cursor/rules/ai-integration.mdc
+@.cursor/rules/database.mdc
+@.cursor/rules/project.mdc
+@.cursor/rules/schemas.mdc
+@.cursor/rules/security.mdc
 @.cursor/rules/testing.mdc
 
-- `.cursor/rules` — coding standards
-- `docs/ARCHITECTURE.md` — system design
-- `docs/plans/` — feature roadmaps
-- `pyproject.toml` — dependencies (source of truth)
+## Architecture
+@docs/ARCHITECTURE.md` — system design
 
 ## Environment
 ```bash
