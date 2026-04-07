@@ -9,12 +9,12 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/meal_planner"
 
-    secret_key: str = "change-me"
+    secret_key: str = "<SECRET_KEY>"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24  # 1 day
 
     anthropic_api_key: Optional[str] = None
-    anthropic_model: str = "claude-3-5-sonnet-20240620"
+    anthropic_model: str = "<ANTHROPIC_MODEL>"
 
     environment: str = "development"
 

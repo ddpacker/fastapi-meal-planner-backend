@@ -1,0 +1,94 @@
+---
+description: Provider-agnostic AI client layer rules — ABC pattern, AnthropicClient, TestClient, prompt templates, and service wiring. Active when editing clients/, services/, or prompt_templates.py.
+globs: app/clients/**/*.py,app/services/**/*.py,app/utils/prompt_templates.py
+alwaysApply: false
+---
+
+## Provider abstraction
+
+- Services depend only on `AIClientBase` in `app/clients/base.py` — never import the Anthropic SDK (or any vendor SDK) directly in services or routers.
+- The active provider is selected from `settings.ai_provider` via `get_ai_client()` in `app/clients/factory.py` and injected as a FastAPI dependency.
+- Adding a new provider = subclass `AIClientBase` in a new file under `app/clients/`. No service changes required.
+
+## AIClientBase contract
+
+```python
+# app/clients/base.py
+from abc import ABC, abstractmethod
+from app.schemas.recipes import RecipeCreate
+
+class ChatModifyResult:
+    assistant_message: str
+    revised_recipe: RecipeCreate | None  # None if no structural change
+
+class AIClientBase(ABC):
+    @abstractmethod
+    def generate_recipes(self, meal_names: list[str]) -> list[RecipeCreate]: ...
+
+    @abstractmethod
+    def chat_modify(
+        self,
+        recipe_json: str,
+        history: list[dict],   # [{"role": "user"|"assistant", "content": str}]
+        user_message: str,
+    ) -> ChatModifyResult: ...
+```
+
+## AnthropicClient (`app/clients/anthropic_client.py`)
+
+- Model name from `settings.anthropic_model`.
+- API key from `settings.anthropic_api_key` — never hardcode.
+- Log `model`, `usage.input_tokens`, and `usage.output_tokens` at INFO level after every call.
+- **Never** log prompt text or response content.
+- Catch `anthropic.APIError` and re-raise as `HTTPException(status_code=502)`.
+
+## TestClient (`app/clients/test_client.py`)
+
+- Implements `AIClientBase` with zero outbound HTTP.
+- Records every call to `self.recorded_calls: list[dict]` for test assertion.
+- `generate_recipes` returns fixture data loaded from `tests/fixtures/sample_recipes.json`.
+- `chat_modify` returns a canned `ChatModifyResult` with `revised_recipe=None` by default.
+- Used whenever `AI_PROVIDER=test` or injected directly in pytest via dependency override.
+
+## Prompt templates (`app/utils/prompt_templates.py`)
+
+- All prompt strings live here — nowhere else in the codebase.
+- `recipe_generation_prompt(meal_names: list[str]) -> str`
+  - Instruct the model to return a JSON array; each element: `title`, `servings`, `instructions` (str), `ingredients` (list of `{name, quantity, unit, category}`), `nutrition_estimate` (`{calories, protein_g, carbs_g, fat_g, per_serving: true}`).
+- `chat_modify_prompt(recipe_json: str, history: list[dict], user_message: str) -> str`
+  - Include current recipe JSON, chat history, and user request.
+  - Ask for a conversational reply and an optional revised recipe JSON block when structural changes are requested.
+
+## Parsing and validation
+
+- Deserialise AI output into Pydantic schemas (`RecipeCreate`, `NutritionInfoCreate`, etc.) using `model_validate` before any DB write.
+- On `ValidationError`: catch it and raise `HTTPException(status_code=422, detail=...)`.
+- On missing or malformed JSON in the response: raise `HTTPException(status_code=502, detail="AI returned invalid response")`.
+
+## Required AI output shapes
+
+**Recipe generation** — JSON array:
+```json
+[
+  {
+    "title": "Chicken Tacos",
+    "servings": 4,
+    "instructions": "...",
+    "ingredients": [
+      {"name": "chicken breast", "quantity": 500, "unit": "g", "category": "meat"}
+    ],
+    "nutrition_estimate": {
+      "calories": 450, "protein_g": 35, "carbs_g": 30, "fat_g": 12, "per_serving": true
+    }
+  }
+]
+```
+
+**Chat modify** — JSON object:
+```json
+{
+  "message": "Sure, I swapped chicken for tofu.",
+  "revised_recipe": { ... }
+}
+```
+Omit `revised_recipe` entirely if no structural change was made.

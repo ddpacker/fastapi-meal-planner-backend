@@ -1,0 +1,67 @@
+---
+description: SQLAlchemy 2.0 conventions, session management, and data model relationships. Active when editing models, db/, or alembic/.
+globs: app/models/**/*.py,app/db/**/*.py,alembic/**
+alwaysApply: false
+---
+
+## SQLAlchemy conventions (2.0 style — enforce consistently)
+
+- Use `select()` + `session.execute()` — **not** `db.query()` (legacy 1.x style).
+- Use `Mapped[T]` type annotations with `mapped_column()` — not `Column()`.
+- No `text()` raw SQL — use ORM constructs only.
+- All DB access through `get_db` dependency injection — no module-level sessions.
+- Services take `db: Session` as first arg; routers call services, never ORM directly.
+
+```python
+# Correct
+from sqlalchemy import select
+stmt = select(User).where(User.id == user_id)
+user = db.execute(stmt).scalar_one_or_none()
+
+# Wrong — do not use
+user = db.query(User).filter(User.id == user_id).first()
+```
+
+## Session management
+
+- `get_db` in `app/db/session.py` is the only way to obtain a session.
+- Commit inside the service, not the router.
+- Use `db.flush()` to get auto-generated IDs before the final commit when building related rows.
+- Always `db.refresh(obj)` after commit if the response schema needs server-set fields (e.g., `created_at`).
+
+## Model conventions
+
+- Inherit from `Base` in `app/db/base_class.py`.
+- Always include `created_at` and `updated_at` with `server_default=func.now()`.
+- Use `DateTime(timezone=True)` for all timestamp columns.
+- Use `cascade="all, delete-orphan"` on all parent→child relationships.
+- Filter every query by `user_id` — no cross-user data leakage.
+
+## Data relationships
+
+```
+User → MealPlanWeek         (1:many, cascade delete)
+User → Recipe               (1:many, cascade delete)
+User → ChatSession          (1:many, cascade delete)
+
+MealPlanWeek → PlannedMeal  (1:many, cascade delete)
+MealPlanWeek → GroceryList  (1:many, cascade delete)
+
+PlannedMeal ↔ Recipe via PlannedMealRecipe  (many:many; role = entree|side|etc.)
+PlannedMeal  → PlannedMealRecipe  (1:many, cascade delete)
+Recipe       → PlannedMealRecipe  (1:many, cascade delete)
+
+Recipe → RecipeIngredient   (1:many, cascade delete)
+Recipe → NutritionInfo      (1:1, uselist=False, cascade delete)
+Recipe → ChatSession        (1:many, cascade delete)
+
+ChatSession → ChatMessage   (1:many, cascade delete)
+GroceryList → GroceryItem   (1:many, cascade delete)
+```
+
+## Alembic
+
+- Migrations live in `alembic/` only — no business logic there.
+- Always import new models in `app/db/base.py` so Alembic autogenerate detects them.
+- Generate migrations with: `uv run alembic revision --autogenerate -m "description"`
+- Apply with: `uv run alembic upgrade head`

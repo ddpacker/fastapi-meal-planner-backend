@@ -1,0 +1,55 @@
+---
+description: pytest conventions, test structure, and AI client test double usage. Active when editing tests/.
+globs: tests/**/*.py
+alwaysApply: false
+---
+
+## Test structure
+
+- One test file per router: `tests/routers/test_auth.py`, `test_meal_plans.py`, etc.
+- One test file per service with non-trivial logic: `tests/services/test_recipe_service.py`, etc.
+- Shared fixtures in `tests/conftest.py`.
+
+## Database
+
+- Use in-memory SQLite or a dedicated test Postgres DB via `DATABASE_URL` env override.
+- Never run tests against the development or production database.
+- Use a fresh DB per test session (or per test where isolation matters) via fixture scope.
+
+## AI client
+
+- **Never** make real AI API calls in tests.
+- Always inject `TestClient` (the `AIClientBase` recording double) via FastAPI dependency override:
+
+```python
+# conftest.py
+from app.clients.test_client import TestClient
+from app.clients.factory import get_ai_client
+
+@pytest.fixture
+def app_with_test_ai(app):
+    app.dependency_overrides[get_ai_client] = lambda: TestClient()
+    yield app
+    app.dependency_overrides.clear()
+```
+
+- After calls that should invoke AI, assert on `test_client.recorded_calls` to verify prompt content and parameters.
+- Fixture recipe payloads live in `tests/fixtures/sample_recipes.json` — `TestClient.generate_recipes` loads from there.
+
+## Assertions
+
+- Assert HTTP status codes explicitly.
+- Assert response schema fields — don't just check `response.status_code == 200`.
+- For AI-backed endpoints, assert that:
+  1. The correct prompt function was called (via `recorded_calls`).
+  2. The returned data matches the fixture payload after Pydantic parsing.
+  3. The correct DB rows were created.
+
+## Running tests
+
+```bash
+uv run pytest                        # all tests
+uv run pytest tests/routers/         # routers only
+uv run pytest -x                     # stop on first failure
+uv run pytest -v                     # verbose output
+```

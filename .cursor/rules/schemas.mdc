@@ -1,0 +1,46 @@
+---
+description: Pydantic v2 schema conventions and API response format rules. Active when editing schemas/.
+globs: app/schemas/**/*.py
+alwaysApply: false
+---
+
+## Pydantic v2 syntax
+
+- Use `model_config = ConfigDict(from_attributes=True)` — **not** `class Config` (v1 style).
+- Use `model_validate(obj)` — not `.parse_obj(obj)`.
+- Use `model_dump()` — not `.dict()`.
+
+```python
+# Correct
+from pydantic import BaseModel, ConfigDict
+
+class RecipeRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    title: str
+
+# Wrong — do not use
+class RecipeRead(BaseModel):
+    class Config:
+        from_attributes = True  # or orm_mode = True
+```
+
+## Schema naming convention
+
+- `*Base` — shared fields (used as base class).
+- `*Create` — fields accepted on POST (no `id`, no timestamps).
+- `*Update` — fields accepted on PUT/PATCH (all fields `Optional`).
+- `*Read` — fields returned in responses (includes `id`, timestamps, nested reads).
+
+## Response format
+
+- Return Pydantic schema directly — FastAPI serialises automatically.
+- `201 Created` for POST endpoints that create resources.
+- `404 Not Found` — `raise HTTPException(status_code=404, detail="...")`.
+- `422 Unprocessable Entity` — let Pydantic/FastAPI return automatically for validation errors.
+- No custom envelope wrappers — never `{"data": ..., "status": "ok"}`.
+
+## Security
+
+- Never include `password_hash` in any `*Read` schema.
+- Never include internal IDs or foreign keys that could leak ownership info unnecessarily.
