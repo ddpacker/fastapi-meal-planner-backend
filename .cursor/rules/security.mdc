@@ -1,0 +1,39 @@
+---
+description: Auth, JWT, password hashing, and per-user data isolation rules. Active when editing core/, routers/auth.py, or any router that uses get_current_user.
+globs: app/core/**/*.py,app/routers/auth.py,app/routers/**/*.py
+alwaysApply: false
+---
+
+## Authentication
+
+- JWT issued at `POST /auth/login`; verified by `get_current_user` in `app/core/deps.py`.
+- `get_current_user` is a FastAPI dependency — inject it as `current_user: User = Depends(get_current_user)`.
+- Every endpoint requires `current_user` **except** `POST /auth/register` and `POST /auth/login`.
+- JWT secret from `settings.secret_key` — never hardcode.
+
+## Passwords
+
+- Hash with `passlib` bcrypt via `get_password_hash()` in `app/core/security.py`.
+- Verify with `verify_password()` — never compare plaintext to hash directly.
+- Never store plaintext passwords.
+- Never expose `password_hash` in any response schema.
+
+## Per-user data isolation
+
+- Filter **every** database query by `user_id == current_user.id`.
+- For nested resources (e.g., a `GroceryItem` belonging to a `GroceryList` belonging to a `MealPlanWeek`), join up to `MealPlanWeek.user_id` to enforce ownership.
+- Return 404 (not 403) when a resource exists but belongs to another user — do not leak existence.
+
+```python
+# Correct — always scope to current user
+stmt = select(Recipe).where(Recipe.id == recipe_id, Recipe.user_id == current_user.id)
+
+# Wrong — never query without user scope
+stmt = select(Recipe).where(Recipe.id == recipe_id)
+```
+
+## Secrets management
+
+- `SECRET_KEY`, `ANTHROPIC_API_KEY`, and `DATABASE_URL` come from environment variables only.
+- Load via `pydantic-settings` in `app/config.py` — never `os.environ` directly.
+- In production, secrets are stored in Azure Key Vault and mounted at container startup.

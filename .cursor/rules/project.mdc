@@ -1,0 +1,72 @@
+---
+description: Project overview, stack, directory layout, build order, and hard do-not rules. Always active.
+globs:
+alwaysApply: true
+---
+
+## Project
+
+FastAPI + PostgreSQL backend for a weekly meal planning assistant. A provider-agnostic AI client layer (Python ABC) drives recipe generation and chat refinement. No frontend — pure JSON API.
+
+## Stack (source of truth: pyproject.toml)
+
+- Python 3.12
+- fastapi==0.135.1, uvicorn>=0.41.0
+- SQLAlchemy>=2.0.36 (2.0 style ORM), alembic>=1.18.4
+- psycopg[binary]>=3.3.3 (psycopg3 — NOT psycopg2 syntax)
+- pydantic[email]==2.12+, pydantic-settings==2.13+
+- passlib==1.7.4, python-jose==3.3.0
+- anthropic SDK (add via `uv add anthropic` when implementing AI layer)
+- pytest (add via `uv add --dev pytest httpx` when writing tests)
+
+## Directory layout (do not deviate)
+
+```
+app/
+  main.py          # app factory (create_app), router registration, lifespan
+  config.py        # Settings via pydantic-settings; access via get_settings()
+  core/
+    deps.py        # get_current_user dependency
+    security.py    # JWT encode/decode, password hashing
+  db/
+    base_class.py  # declarative Base
+    base.py        # Base + all model imports (for Alembic env.py)
+    session.py     # engine, SessionLocal, get_db dependency
+  models/          # SQLAlchemy models: chat, grocery, meal_plan, nutrition, recipe, user
+  schemas/         # Pydantic v2 schemas
+  routers/         # auth, chat, grocery, meal_plans, recipes
+  services/        # meal_plan_service, recipe_service, grocery_service, nutrition_service
+  clients/
+    base.py              # ABC defining generate_recipes / chat_modify contract
+    anthropic_client.py  # Anthropic concrete implementation
+    test_client.py       # recording test double — no real API calls
+  utils/
+    prompt_templates.py  # all prompt strings live here, nowhere else
+alembic/           # migrations only — no business logic
+```
+
+## Build order
+
+1. `setup-fastapi-project` — skeleton, config, health endpoint ✅
+2. `db-and-models` — SQLAlchemy models + Alembic env ✅
+3. `schemas-and-routers` — Pydantic schemas + router stubs ✅
+4. `ai-provider-integration` — ABC + clients + prompt templates + services
+5. `grocery-and-nutrition-services` — extract to service layer + AI nutrition
+6. `tests-and-docs` — pytest suite + OpenAPI cleanup
+
+## Documentation protocol
+
+- **Auto-Update:** After feature completion, sync `/docs/` (ARCHITECTURE.md, DEPLOYMENT.md, SETUP.md, etc.) to match the new code.
+- **New Dependencies:** If adding packages via `uv add`, update:
+  - [docs/SETUP.md](docs/SETUP.md) — add to `.env` template if new env vars required
+  - [README.md](README.md) — update tech stack section if it's a major dependency
+- **Plans:** Update `docs/plans/*.plan.md` to mark tasks completed and note any deviations.
+
+## Do not
+
+- Do not add packages not in `pyproject.toml` without explicit instruction (`uv add <package>` to add).
+- Do not put business logic in routers or prompt strings outside `prompt_templates.py`.
+- Do not use `text()` raw SQL — use ORM queries.
+- Do not call the AI provider directly from routers or models.
+- Do not add dependencies, refactoring, or "improvements" beyond what is asked.
+- Do not modify `CLAUDE.md` or `.cursorrules` without explicit user permission.
