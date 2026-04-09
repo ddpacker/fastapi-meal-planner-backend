@@ -35,7 +35,7 @@ todos:
       chat_modify: send current recipe JSON + chat history + user message; parse response into
       ChatModifyResult. Log model name and token usage (usage.input_tokens, usage.output_tokens)
       at INFO level — never log prompt/response content.
-    status: pending
+    status: done
     dependencies:
       - ai-base-client
 
@@ -50,7 +50,7 @@ todos:
       includes current recipe JSON, chat history, and user request; asks for a conversational
       reply and optionally a revised recipe JSON block when structural changes are requested.
       All prompt strings live here — nowhere else in the codebase.
-    status: pending
+    status: done
     dependencies:
       - ai-base-client
 
@@ -128,8 +128,8 @@ todos:
 |--------|------|-----------|
 | ✅ Done | AI client ABC | `app/clients/base.py` |
 | ✅ Done | FakeClient (recording test double) | `app/clients/fake.py`, `tests/fixtures/sample_recipes.json` |
-| ⏳ Pending | AnthropicClient (concrete provider) | `app/clients/anthropic_client.py` |
-| ⏳ Pending | Prompt templates | `app/utils/prompt_templates.py` |
+| ✅ Done | AnthropicClient (concrete provider) | `app/clients/anthropic_client.py` |
+| ✅ Done | Prompt templates | `app/utils/prompt_templates.py` |
 | ⏳ Pending | Client factory + settings wiring | `app/clients/factory.py`, `app/config.py` |
 | ⏳ Pending | Recipe service + generate-recipes endpoint | `app/services/recipe_service.py`, `app/routers/meal_plans.py` |
 | ⏳ Pending | Chat service + messages endpoint | `app/services/chat_service.py`, `app/routers/chat.py` |

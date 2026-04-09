@@ -15,4 +15,5 @@ dependencies = [
     "psycopg[binary]>=3.3.3",
     "python-multipart>=0.0.22",
     "alembic>=1.18.4",
+    "anthropic>=0.93.0",
 ]
