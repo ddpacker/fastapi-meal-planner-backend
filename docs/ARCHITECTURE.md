@@ -43,7 +43,7 @@ flowchart TD
   - `app/clients/` – AI integration:
     - `base.py` – **ABC** defining the contract (e.g. `generate_recipes`, `chat_modify`) and shared types.
     - One module per provider (e.g. `anthropic_client.py`, future `openai_client.py`, etc.).
-    - `test_client.py` – **noop/recording implementation** for local runs: captures prompt text and parameters so you can review prompt parameterization without contacting a real model; returns deterministic payloads for tests.
+    - `fake.py` – **noop/recording implementation** for local runs: captures prompt text and parameters so you can review prompt parameterization without contacting a real model; returns deterministic payloads for tests.
   - `app/utils/` – shared helpers (e.g., prompt templates, parsing utilities).
   - `alembic/` – migration environment and versions.
 
@@ -121,7 +121,7 @@ flowchart TD
 - **Concrete providers** (e.g. `app/clients/anthropic_client.py`, future modules for other APIs)
   - Each implementation handles that vendor’s authentication, endpoints, and response shapes, then maps results into the same in-app DTOs the services already use.
 
-- **Local / test double** (`app/clients/test_client.py`)
+- **Local / test double** (`app/clients/fake.py`)
   - Implements the same ABC without outbound HTTP: records prompts, template parameters, and message history for inspection; returns canned or configurable JSON so downstream parsing and DB writes can still be exercised locally.
   - Use in pytest and for manual runs when validating prompt parameterization only.
 

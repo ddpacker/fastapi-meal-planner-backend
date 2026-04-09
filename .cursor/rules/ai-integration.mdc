@@ -1,5 +1,5 @@
 ---
-description: Provider-agnostic AI client layer rules — ABC pattern, AnthropicClient, TestClient, prompt templates, and service wiring. Active when editing clients/, services/, or prompt_templates.py.
+description: Provider-agnostic AI client layer rules — ABC pattern, AnthropicClient, FakeClient, prompt templates, and service wiring. Active when editing clients/, services/, or prompt_templates.py.
 globs: app/clients/**/*.py,app/services/**/*.py,app/utils/prompt_templates.py
 alwaysApply: false
 ---
@@ -42,7 +42,7 @@ class AIClientBase(ABC):
 - **Never** log prompt text or response content.
 - Catch `anthropic.APIError` and re-raise as `HTTPException(status_code=502)`.
 
-## TestClient (`app/clients/test_client.py`)
+## FakeClient (`app/clients/fake.py`)
 
 - Implements `AIClientBase` with zero outbound HTTP.
 - Records every call to `self.recorded_calls: list[dict]` for test assertion.

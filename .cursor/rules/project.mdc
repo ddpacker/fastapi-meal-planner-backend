@@ -37,9 +37,9 @@ app/
   routers/         # auth, chat, grocery, meal_plans, recipes
   services/        # meal_plan_service, recipe_service, grocery_service, nutrition_service
   clients/
-    base.py              # ABC defining generate_recipes / chat_modify contract
-    anthropic_client.py  # Anthropic concrete implementation
-    test_client.py       # recording test double — no real API calls
+    base.py               # ABC defining generate_recipes / chat_modify contract
+    anthropic_client.py   # Anthropic concrete implementation
+    fake.py               # recording test double — no real API calls
   utils/
     prompt_templates.py  # all prompt strings live here, nowhere else
 alembic/           # migrations only — no business logic

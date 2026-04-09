@@ -2,7 +2,7 @@
 name: ai-connector
 overview: >
   Build a provider-agnostic AI client layer (Python ABC) for the meal planner backend.
-  Implement AnthropicClient as the first concrete provider, a TestClient test double for
+  Implement AnthropicClient as the first concrete provider, a FakeClient test double for
   local/test use, prompt templates, and service modules that replace the current router stubs.
 todos:
   - id: ai-base-client
@@ -12,16 +12,16 @@ todos:
       chat_modify(recipe: RecipeRead, history: list[dict], user_message: str) -> ChatModifyResult.
       Define shared return types (or import from schemas) used by both methods.
       Services must depend only on this ABC — never on a concrete provider import.
-    status: pending
+    status: done
 
-  - id: ai-test-client
+  - id: ai-fake-client
     content: >
-      Create app/clients/test_client.py implementing AIClientBase without any outbound HTTP calls.
+      Create app/clients/fake.py implementing AIClientBase without any outbound HTTP calls.
       The client must record every call (prompt text, parameters) to an internal list for
       test assertion. generate_recipes returns deterministic fixture recipes loaded from a
       JSON file at tests/fixtures/sample_recipes.json. chat_modify returns a canned
       ChatModifyResult. Used in all pytest tests and local runs where AI_PROVIDER=test.
-    status: pending
+    status: done
     dependencies:
       - ai-base-client
 
@@ -63,7 +63,7 @@ todos:
     status: pending
     dependencies:
       - ai-anthropic-client
-      - ai-test-client
+      - ai-fake-client
 
   - id: recipe-service
     content: >
@@ -126,8 +126,8 @@ todos:
 
 | Status | Task | Key files |
 |--------|------|-----------|
-| ⏳ Pending | AI client ABC | `app/clients/base.py` |
-| ⏳ Pending | TestClient (recording test double) | `app/clients/test_client.py`, `tests/fixtures/sample_recipes.json` |
+| ✅ Done | AI client ABC | `app/clients/base.py` |
+| ✅ Done | FakeClient (recording test double) | `app/clients/fake.py`, `tests/fixtures/sample_recipes.json` |
 | ⏳ Pending | AnthropicClient (concrete provider) | `app/clients/anthropic_client.py` |
 | ⏳ Pending | Prompt templates | `app/utils/prompt_templates.py` |
 | ⏳ Pending | Client factory + settings wiring | `app/clients/factory.py`, `app/config.py` |
@@ -145,7 +145,7 @@ todos:
 Build in dependency order to avoid circular imports and keep tests passing at each step:
 
 1. `ai-base-client` — ABC and shared types
-2. `ai-test-client` — enables testing immediately
+2. `ai-fake-client` — enables testing immediately
 3. `prompt-templates` — pure string functions, no deps
 4. `ai-anthropic-client` — concrete provider
 5. `client-factory` — settings wiring
@@ -226,6 +226,6 @@ def my_endpoint(ai_client: AIClientBase = Depends(get_ai_client), ...):
 ### Testing
 
 - Always use `AI_PROVIDER=test` in tests (or override `get_ai_client` dependency).
-- Assert on `test_client.recorded_calls` to verify prompt content.
+- Assert on `fake.recorded_calls` to verify prompt content.
 - Use `tests/fixtures/sample_recipes.json` for deterministic recipe payloads.
 - Never set `ANTHROPIC_API_KEY` in test environment.
