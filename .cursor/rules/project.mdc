@@ -54,11 +54,12 @@ alembic/           # migrations only — no business logic
 5. `grocery-and-nutrition-services` — extract to service layer + AI nutrition
 6. `tests-and-docs` — pytest suite + OpenAPI cleanup
 
-## Comments
-- Do not add module-level docstrings unless the filename is ambiguous or the module is a public API surface
-- Do not add inline comments that restate what the code already says
-- Docstrings on functions/classes are appropriate when behavior is non-obvious or parameters need clarification
-- Prefer expressive naming over explanatory comments
+## Comments and Docstrings
+- Do not add docstrings to classes or functions whose name and signature are self-explanatory
+- Docstrings are appropriate when behavior, side effects, or parameters are non-obvious
+- Do not add module-level docstrings
+- Do not add inline comments that restate what the code does
+- The developer will add comments where they deem necessary
 
 ## Documentation protocol
 
