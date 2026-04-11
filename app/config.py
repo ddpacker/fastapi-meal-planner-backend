@@ -1,9 +1,13 @@
+from enum import Enum
 from functools import lru_cache
 from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.clients.factory import AIProvider
+
+class AIProvider(str, Enum):
+    TEST = "test"
+    ANTHROPIC = "anthropic"
 
 
 class Settings(BaseSettings):

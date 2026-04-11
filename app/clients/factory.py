@@ -1,14 +1,10 @@
-from enum import Enum
 from fastapi import Depends, HTTPException, status
 
 from app.clients.base import AIClientBase
 from app.clients.fake import FakeClient
 from app.clients.anthropic.client import AnthropicClient
-from app.config import Settings, get_settings
+from app.config import AIProvider, Settings, get_settings
 
-class AIProvider(str, Enum):
-    TEST = "test"
-    ANTHROPIC = "anthropic"
 
 def get_ai_client(settings: Settings = Depends(get_settings)) -> AIClientBase:
     if settings.ai_provider == AIProvider.TEST:
