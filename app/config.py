@@ -3,6 +3,8 @@ from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.clients.factory import AIProvider
+
 
 class Settings(BaseSettings):
     """Application configuration loaded from environment variables or a .env file."""
@@ -12,6 +14,8 @@ class Settings(BaseSettings):
     secret_key: str = "<SECRET_KEY>"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24  # 1 day
+
+    ai_provider: AIProvider = AIProvider.ANTHROPIC
 
     anthropic_api_key: Optional[str] = None
     anthropic_model: str = "<ANTHROPIC_MODEL>"

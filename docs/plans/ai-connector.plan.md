@@ -130,7 +130,7 @@ todos:
 | ✅ Done | FakeClient (recording test double) | `app/clients/fake.py`, `tests/fixtures/sample_recipes.json` |
 | ✅ Done | AnthropicClient (concrete provider) | `app/clients/anthropic_client.py` |
 | ✅ Done | Prompt templates | `app/utils/prompt_templates.py` |
-| ⏳ Pending | Client factory + settings wiring | `app/clients/factory.py`, `app/config.py` |
+| ✅ Done | Client factory + settings wiring | `app/clients/factory.py`, `app/config.py` |
 | ⏳ Pending | Recipe service + generate-recipes endpoint | `app/services/recipe_service.py`, `app/routers/meal_plans.py` |
 | ⏳ Pending | Chat service + messages endpoint | `app/services/chat_service.py`, `app/routers/chat.py` |
 | ⏳ Pending | Extract grocery service | `app/services/grocery_service.py`, `app/routers/grocery.py` |
