@@ -146,7 +146,12 @@ flowchart TD
   - Persist `GroceryList` + `GroceryItem` records.
 
 - **Nutrition estimation** (`app/services/nutrition_service.py`)
-  - Integrate with a dedicated nutrition API (e.g., USDA, Edamam) for accurate per-serving macro data.
+  - Integrate with a dedicated nutrition API for accurate per-serving macro data.
+  - `Edamam` was the first consideration due to its NLP parsing and dedicated meal planning endpoints, but its per-call cost structure and prohibition on caching creates linear API cost scaling with user activity. Since the AI layer outputs structured JSON for ingredients, the NLP capability doesn't justify the tradeoff.
+  - `USDA FoodData Central` enables local caching. Ingredients can be persisted indefinitely since nutritional data is effectively static. This flattens the cost curve at scale and improves response times after initial population. 
+  - Locally stored nutrient profiles also open the door to semantic ingredient queries via `pgvector` (e.g. swapping an ingredient for a leaner or keto-compatible alternative).
+  - Ingredient nutrient data will be stored using a hybrid approach in Postgres. Macro and micronutrients will be stored in normalized columns, and there will be an additional `raw_data` JSONB field to store other relevant data that may be referenced in future features.
+  - A cache-aside pattern will be used: On ingredient lookup, check local DB first and only hit the USDA API on a miss, then persist the result. For canonical key: see [Open Questions](#open-questions) below.
   - Parse API responses into `NutritionInfo` records and persist to database.
 
 ## 7. Auth, security, and multi-user concerns
@@ -182,3 +187,6 @@ flowchart TD
   - Keep responses clean and JSON-based, suitable for an Angular SPA, React, or mobile app.
 
 This plan focuses solely on the **FastAPI + Postgres backend**, leaving the frontend flexible so you can later plug in Angular or another client. AI capabilities are **provider-agnostic at the service layer**, with new vendors added by subclassing the ABC rather than rewriting business logic.
+
+## Open Questions
+- **TODO:** Investigate FDC ID vs. NDB Number as the canonical cache key. Compare the long-term stability of the two identifiers and how they relate to brand name food items.

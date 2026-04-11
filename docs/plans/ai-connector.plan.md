@@ -104,20 +104,6 @@ todos:
     status: pending
     dependencies:
       - client-factory
-
-  - id: nutrition-service
-    content: >
-      Create app/services/nutrition_service.py with:
-      calculate_nutrition(recipe_id: int, db: Session, ai_client: AIClientBase, user: User)
-        -> NutritionInfo — loads Recipe + RecipeIngredient rows, calls ai_client to estimate
-        per-serving macros (calories, protein_g, carbs_g, fat_g), validates via NutritionInfoCreate
-        schema, upserts NutritionInfo row, returns the result.
-      Wire into POST /recipes/{recipe_id}/nutrition in app/routers/recipes.py,
-      replacing the current stub that creates an empty placeholder record.
-    status: pending
-    dependencies:
-      - client-factory
-      - prompt-templates
 ---
 
 ## Roadmap
@@ -134,8 +120,6 @@ todos:
 | ⏳ Pending | Recipe service + generate-recipes endpoint | `app/services/recipe_service.py`, `app/routers/meal_plans.py` |
 | ⏳ Pending | Chat service + messages endpoint | `app/services/chat_service.py`, `app/routers/chat.py` |
 | ⏳ Pending | Extract grocery service | `app/services/grocery_service.py`, `app/routers/grocery.py` |
-| ⏳ Pending | Nutrition service + nutrition endpoint | `app/services/nutrition_service.py`, `app/routers/recipes.py` |
-
 ---
 
 ## Implementation notes
@@ -152,7 +136,6 @@ Build in dependency order to avoid circular imports and keep tests passing at ea
 6. `recipe-service` → wire into `meal_plans` router
 7. `chat-service` → wire into `chat` router
 8. `grocery-service` → extract from `grocery` router
-9. `nutrition-service` → wire into `recipes` router
 
 ### ABC contract
 
@@ -189,10 +172,7 @@ class AIClientBase(ABC):
     "instructions": "...",
     "ingredients": [
       {"name": "chicken breast", "quantity": 500, "unit": "g", "category": "meat"}
-    ],
-    "nutrition_estimate": {
-      "calories": 450, "protein_g": 35, "carbs_g": 30, "fat_g": 12, "per_serving": true
-    }
+    ]
   }
 ]
 ```
