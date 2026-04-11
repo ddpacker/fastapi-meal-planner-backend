@@ -60,7 +60,7 @@ todos:
       Add a get_ai_client() factory function (or FastAPI dependency) in app/clients/factory.py
       that reads settings.ai_provider and returns the appropriate AIClientBase instance.
       Services receive the client via dependency injection — never instantiate directly.
-    status: pending
+    status: done
     dependencies:
       - ai-anthropic-client
       - ai-fake-client
@@ -74,7 +74,7 @@ todos:
         PlannedMealRecipe, and returns the refreshed MealPlanWeek.
       Wire into POST /meal-plans/{plan_id}/generate-recipes in app/routers/meal_plans.py,
       replacing the current stub that returns the plan unchanged.
-    status: pending
+    status: done
     dependencies:
       - client-factory
       - prompt-templates
@@ -117,7 +117,7 @@ todos:
 | ✅ Done | AnthropicClient (concrete provider) | `app/clients/anthropic_client.py` |
 | ✅ Done | Prompt templates | `app/utils/prompt_templates.py` |
 | ✅ Done | Client factory + settings wiring | `app/clients/factory.py`, `app/config.py` |
-| ⏳ Pending | Recipe service + generate-recipes endpoint | `app/services/recipe_service.py`, `app/routers/meal_plans.py` |
+| ✅ Done | Recipe service + generate-recipes endpoint | `app/services/recipe_service.py`, `app/routers/meal_plans.py` |
 | ⏳ Pending | Chat service + messages endpoint | `app/services/chat_service.py`, `app/routers/chat.py` |
 | ⏳ Pending | Extract grocery service | `app/services/grocery_service.py`, `app/routers/grocery.py` |
 ---

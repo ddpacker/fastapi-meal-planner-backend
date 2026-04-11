@@ -3,6 +3,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
+from app.schemas.nutrition import NutritionInfoCreate
+
 
 class RecipeIngredientBase(BaseModel):
     name: str
@@ -30,6 +32,7 @@ class RecipeBase(BaseModel):
 
 class RecipeCreate(RecipeBase):
     ingredients: List[RecipeIngredientCreate]
+    nutrition_estimate: Optional[NutritionInfoCreate] = None
 
 
 class RecipeRead(RecipeBase):
