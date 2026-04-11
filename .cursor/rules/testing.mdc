@@ -3,6 +3,10 @@ description: pytest conventions, test structure, and AI client test double usage
 globs: tests/**/*.py
 alwaysApply: false
 ---
+## Testing
+- Every implementation task must be accompanied by pytest tests
+- Use tests/fixtures/sample_recipes.json for deterministic recipe payloads
+- Run tests after implementation and confirm they pass before marking a task done
 
 ## Test structure
 
