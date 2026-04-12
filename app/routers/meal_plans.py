@@ -3,11 +3,14 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.clients.base import AIClientBase
+from app.clients.factory import get_ai_client
 from app.core.deps import get_current_user
 from app.db.session import get_db
 from app.models.meal_plan import MealPlanWeek, PlannedMeal
 from app.models.user import User
 from app.schemas.meal_plans import MealPlanWeekCreate, MealPlanWeekRead, MealPlanWeekUpdate
+from app.services import recipe_service
 
 
 router = APIRouter(prefix="/meal-plans", tags=["meal-plans"])
@@ -108,22 +111,12 @@ def update_meal_plan(
     return plan
 
 
-# Stub endpoint for recipe generation; will later call Anthropic-backed service.
 @router.post("/{plan_id}/generate-recipes", response_model=MealPlanWeekRead)
 def generate_recipes_for_plan(
     plan_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    ai_client: AIClientBase = Depends(get_ai_client),
 ) -> MealPlanWeek:
-    plan = (
-        db.query(MealPlanWeek)
-        .filter(MealPlanWeek.id == plan_id, MealPlanWeek.user_id == current_user.id)
-        .first()
-    )
-    if not plan:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meal plan not found")
-
-    # TODO: integrate with recipe_service + Anthropic to populate recipes for planned meals.
-
-    return plan
+    return recipe_service.generate_recipes_for_plan(plan_id, db, ai_client, current_user)
 

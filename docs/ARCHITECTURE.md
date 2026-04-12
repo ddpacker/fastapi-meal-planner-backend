@@ -43,7 +43,7 @@ flowchart TD
   - `app/clients/` – AI integration:
     - `base.py` – **ABC** defining the contract (e.g. `generate_recipes`, `chat_modify`) and shared types.
     - One module per provider (e.g. `anthropic_client.py`, future `openai_client.py`, etc.).
-    - `test_client.py` – **noop/recording implementation** for local runs: captures prompt text and parameters so you can review prompt parameterization without contacting a real model; returns deterministic payloads for tests.
+    - `fake.py` – **noop/recording implementation** for local runs: captures prompt text and parameters so you can review prompt parameterization without contacting a real model; returns deterministic payloads for tests.
   - `app/utils/` – shared helpers (e.g., prompt templates, parsing utilities).
   - `alembic/` – migration environment and versions.
 
@@ -109,7 +109,7 @@ flowchart TD
   - `PATCH /grocery-items/{item_id}` – toggle `checked` or adjust quantities.
 
 - **Nutrition endpoints** (`/nutrition` router)
-  - `POST /recipes/{recipe_id}/nutrition` – calculate or refresh nutrition info for a recipe (via AI and/or external API).
+  - `POST /recipes/{recipe_id}/nutrition` – calculate or refresh nutrition info for a recipe.
   - `GET /recipes/{recipe_id}/nutrition` – fetch stored `NutritionInfo`.
 
 ## 5. AI provider integration & prompt strategy
@@ -121,20 +121,20 @@ flowchart TD
 - **Concrete providers** (e.g. `app/clients/anthropic_client.py`, future modules for other APIs)
   - Each implementation handles that vendor’s authentication, endpoints, and response shapes, then maps results into the same in-app DTOs the services already use.
 
-- **Local / test double** (`app/clients/test_client.py`)
+- **Local / test double** (`app/clients/fake.py`)
   - Implements the same ABC without outbound HTTP: records prompts, template parameters, and message history for inspection; returns canned or configurable JSON so downstream parsing and DB writes can still be exercised locally.
   - Use in pytest and for manual runs when validating prompt parameterization only.
 
 - **Prompt templates** (`app/utils/prompt_templates.py`)
   - **Recipe generation prompt**: instruct the model to output structured JSON for each meal:
-    - title, servings, ingredients (name, quantity, unit, category), steps, and basic nutrition estimates.
+    - title, servings, instructions, and ingredients (name, quantity, unit, category).
   - **Chat modification prompt**: include current recipe JSON + chat history, ask the model to:
     - answer conversationally, and
     - optionally return a new revised recipe JSON when structural changes are requested (e.g., "make this vegetarian").
   - Templates remain **vendor-agnostic** string builders; providers only differ in how they send the assembled text.
 
 - **Parsing & validation**
-  - Deserialize the model’s structured output into Pydantic schemas (e.g., `RecipeCreate`, `RecipeIngredientCreate`, `NutritionInfoCreate`).
+  - Deserialize the model’s structured output into Pydantic schemas (e.g., `RecipeCreate`, `RecipeIngredientCreate`) before DB writes.
   - Validate before persisting to Postgres; handle errors gracefully (e.g., fallback to partial results or ask the client to re-try).
 
 ## 6. Grocery list & nutrition logic
@@ -146,7 +146,12 @@ flowchart TD
   - Persist `GroceryList` + `GroceryItem` records.
 
 - **Nutrition estimation** (`app/services/nutrition_service.py`)
-  - Integrate with a dedicated nutrition API (e.g., USDA, Edamam) for accurate per-serving macro data.
+  - Integrate with a dedicated nutrition API for accurate per-serving macro data.
+  - `Edamam` was the first consideration due to its NLP parsing and dedicated meal planning endpoints, but its per-call cost structure and prohibition on caching creates linear API cost scaling with user activity. Since the AI layer outputs structured JSON for ingredients, the NLP capability doesn't justify the tradeoff.
+  - `USDA FoodData Central` enables local caching. Ingredients can be persisted indefinitely since nutritional data is effectively static. This flattens the cost curve at scale and improves response times after initial population. 
+  - Locally stored nutrient profiles also open the door to semantic ingredient queries via `pgvector` (e.g. swapping an ingredient for a leaner or keto-compatible alternative).
+  - Ingredient nutrient data will be stored using a hybrid approach in Postgres. Macro and micronutrients will be stored in normalized columns, and there will be an additional `raw_data` JSONB field to store other relevant data that may be referenced in future features.
+  - A cache-aside pattern will be used: On ingredient lookup, check local DB first and only hit the USDA API on a miss, then persist the result. For canonical key: see [Open Questions](#open-questions) below.
   - Parse API responses into `NutritionInfo` records and persist to database.
 
 ## 7. Auth, security, and multi-user concerns
@@ -182,3 +187,6 @@ flowchart TD
   - Keep responses clean and JSON-based, suitable for an Angular SPA, React, or mobile app.
 
 This plan focuses solely on the **FastAPI + Postgres backend**, leaving the frontend flexible so you can later plug in Angular or another client. AI capabilities are **provider-agnostic at the service layer**, with new vendors added by subclassing the ABC rather than rewriting business logic.
+
+## Open Questions
+- **TODO:** Investigate FDC ID vs. NDB Number as the canonical cache key. Compare the long-term stability of the two identifiers and how they relate to brand name food items.

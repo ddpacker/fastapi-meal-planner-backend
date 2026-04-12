@@ -120,7 +120,7 @@ def calculate_nutrition(
         db.delete(existing)
         db.flush()
 
-    # TODO: integrate with nutrition_service + Anthropic/external API to calculate nutrition
+    # TODO: integrate with nutrition_service to calculate nutrition
     # For now, create a placeholder record
     nutrition_info = NutritionInfo(
         recipe_id=recipe_id,

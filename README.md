@@ -70,3 +70,11 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed design and data model.
 - **Database Migrations:** Alembic - Schema versioning managed via container script. Synchronizes state between PostgreSQL schema and Pydantic models
 
 See [INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) for Azure setup and deployment workflow details.
+
+## Git Workflow
+
+Conventions are actively refined over time as the project's scope and needs become clearer.
+
+- Commit Names: `type: summary of change`
+- Branch Names: `type/short-description`
+- PRs Squashed to: `type: short description`

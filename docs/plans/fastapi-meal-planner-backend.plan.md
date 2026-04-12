@@ -42,7 +42,7 @@ todos:
     content: >
       Add pytest test suite: one file per router (tests/routers/), one per service with non-trivial
       logic (tests/services/). Use in-memory SQLite or a test Postgres DB via DATABASE_URL env override.
-      Always inject TestClient (ABC double) — never make real AI API calls in tests.
+      Always inject FakeClient (ABC double) — never make real AI API calls in tests.
       Ensure OpenAPI docs at /docs are clean: correct tags, summaries, and example responses.
     status: pending
     dependencies:
@@ -59,7 +59,7 @@ todos:
 | ✅ Done | SQLAlchemy models and Alembic migrations |
 | ✅ Done | Pydantic schemas and all router endpoints (with AI stubs) |
 | ✅ Done | Grocery list aggregation logic (in router — needs extraction to service) |
-| ⏳ Pending | AI provider ABC + AnthropicClient + TestClient |
+| ⏳ Pending | AI provider ABC + AnthropicClient + FakeClient |
 | ⏳  Pending | Nutrition estimation (placeholder record only, no AI integration yet) |
 | ⏳ Pending | `recipe_service` and `chat_service` wired to AI client |
 | ⏳ Pending | Extract grocery logic to `grocery_service`, implement `nutrition_service` |

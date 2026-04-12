@@ -3,6 +3,10 @@ description: pytest conventions, test structure, and AI client test double usage
 globs: tests/**/*.py
 alwaysApply: false
 ---
+## Testing
+- Every implementation task must be accompanied by pytest tests
+- Use tests/fixtures/sample_recipes.json for deterministic recipe payloads
+- Run tests after implementation and confirm they pass before marking a task done
 
 ## Test structure
 
@@ -19,22 +23,22 @@ alwaysApply: false
 ## AI client
 
 - **Never** make real AI API calls in tests.
-- Always inject `TestClient` (the `AIClientBase` recording double) via FastAPI dependency override:
+- Always inject `FakeClient` (the `AIClientBase` recording double) via FastAPI dependency override:
 
 ```python
 # conftest.py
-from app.clients.test_client import TestClient
+from app.clients.fake import FakeClient
 from app.clients.factory import get_ai_client
 
 @pytest.fixture
 def app_with_test_ai(app):
-    app.dependency_overrides[get_ai_client] = lambda: TestClient()
+    app.dependency_overrides[get_ai_client] = lambda: FakeClient()
     yield app
     app.dependency_overrides.clear()
 ```
 
-- After calls that should invoke AI, assert on `test_client.recorded_calls` to verify prompt content and parameters.
-- Fixture recipe payloads live in `tests/fixtures/sample_recipes.json` — `TestClient.generate_recipes` loads from there.
+- After calls that should invoke AI, assert on `fake.recorded_calls` to verify prompt content and parameters.
+- Fixture recipe payloads live in `tests/fixtures/sample_recipes.json` — `FakeClient.generate_recipes` loads from there.
 
 ## Assertions
 

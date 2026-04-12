@@ -2,7 +2,7 @@
 name: ai-connector
 overview: >
   Build a provider-agnostic AI client layer (Python ABC) for the meal planner backend.
-  Implement AnthropicClient as the first concrete provider, a TestClient test double for
+  Implement AnthropicClient as the first concrete provider, a FakeClient test double for
   local/test use, prompt templates, and service modules that replace the current router stubs.
 todos:
   - id: ai-base-client
@@ -12,16 +12,16 @@ todos:
       chat_modify(recipe: RecipeRead, history: list[dict], user_message: str) -> ChatModifyResult.
       Define shared return types (or import from schemas) used by both methods.
       Services must depend only on this ABC — never on a concrete provider import.
-    status: pending
+    status: done
 
-  - id: ai-test-client
+  - id: ai-fake-client
     content: >
-      Create app/clients/test_client.py implementing AIClientBase without any outbound HTTP calls.
+      Create app/clients/fake.py implementing AIClientBase without any outbound HTTP calls.
       The client must record every call (prompt text, parameters) to an internal list for
       test assertion. generate_recipes returns deterministic fixture recipes loaded from a
       JSON file at tests/fixtures/sample_recipes.json. chat_modify returns a canned
       ChatModifyResult. Used in all pytest tests and local runs where AI_PROVIDER=test.
-    status: pending
+    status: done
     dependencies:
       - ai-base-client
 
@@ -35,7 +35,7 @@ todos:
       chat_modify: send current recipe JSON + chat history + user message; parse response into
       ChatModifyResult. Log model name and token usage (usage.input_tokens, usage.output_tokens)
       at INFO level — never log prompt/response content.
-    status: pending
+    status: done
     dependencies:
       - ai-base-client
 
@@ -43,14 +43,13 @@ todos:
     content: >
       Create app/utils/prompt_templates.py with two functions:
       recipe_generation_prompt(meal_names: list[str]) -> str — instructs the model to return a
-      JSON array where each element has: title, servings, instructions (string), ingredients
-      (list of {name, quantity, unit, category}), and nutrition_estimate
-      ({calories, protein_g, carbs_g, fat_g, per_serving: true}).
+      JSON array where each element has: title, servings, instructions (string), and ingredients
+      (list of {name, quantity, unit, category}).
       chat_modify_prompt(recipe_json: str, history: list[dict], user_message: str) -> str —
       includes current recipe JSON, chat history, and user request; asks for a conversational
       reply and optionally a revised recipe JSON block when structural changes are requested.
       All prompt strings live here — nowhere else in the codebase.
-    status: pending
+    status: done
     dependencies:
       - ai-base-client
 
@@ -60,10 +59,10 @@ todos:
       Add a get_ai_client() factory function (or FastAPI dependency) in app/clients/factory.py
       that reads settings.ai_provider and returns the appropriate AIClientBase instance.
       Services receive the client via dependency injection — never instantiate directly.
-    status: pending
+    status: done
     dependencies:
       - ai-anthropic-client
-      - ai-test-client
+      - ai-fake-client
 
   - id: recipe-service
     content: >
@@ -74,7 +73,7 @@ todos:
         PlannedMealRecipe, and returns the refreshed MealPlanWeek.
       Wire into POST /meal-plans/{plan_id}/generate-recipes in app/routers/meal_plans.py,
       replacing the current stub that returns the plan unchanged.
-    status: pending
+    status: done
     dependencies:
       - client-factory
       - prompt-templates
@@ -89,7 +88,7 @@ todos:
         and returns all messages ordered by created_at asc.
       Wire into POST /chat-sessions/{session_id}/messages in app/routers/chat.py,
       replacing the current stub that echoes a placeholder assistant reply.
-    status: pending
+    status: done
     dependencies:
       - client-factory
       - prompt-templates
@@ -101,23 +100,9 @@ todos:
       generate_grocery_list(plan_id: int, db: Session, user: User) -> GroceryList
       The router's generate_grocery_list endpoint becomes a thin call to the service.
       No AI calls required for this task — aggregation is pure Python logic.
-    status: pending
+    status: done
     dependencies:
       - client-factory
-
-  - id: nutrition-service
-    content: >
-      Create app/services/nutrition_service.py with:
-      calculate_nutrition(recipe_id: int, db: Session, ai_client: AIClientBase, user: User)
-        -> NutritionInfo — loads Recipe + RecipeIngredient rows, calls ai_client to estimate
-        per-serving macros (calories, protein_g, carbs_g, fat_g), validates via NutritionInfoCreate
-        schema, upserts NutritionInfo row, returns the result.
-      Wire into POST /recipes/{recipe_id}/nutrition in app/routers/recipes.py,
-      replacing the current stub that creates an empty placeholder record.
-    status: pending
-    dependencies:
-      - client-factory
-      - prompt-templates
 ---
 
 ## Roadmap
@@ -126,16 +111,14 @@ todos:
 
 | Status | Task | Key files |
 |--------|------|-----------|
-| ⏳ Pending | AI client ABC | `app/clients/base.py` |
-| ⏳ Pending | TestClient (recording test double) | `app/clients/test_client.py`, `tests/fixtures/sample_recipes.json` |
-| ⏳ Pending | AnthropicClient (concrete provider) | `app/clients/anthropic_client.py` |
-| ⏳ Pending | Prompt templates | `app/utils/prompt_templates.py` |
-| ⏳ Pending | Client factory + settings wiring | `app/clients/factory.py`, `app/config.py` |
-| ⏳ Pending | Recipe service + generate-recipes endpoint | `app/services/recipe_service.py`, `app/routers/meal_plans.py` |
-| ⏳ Pending | Chat service + messages endpoint | `app/services/chat_service.py`, `app/routers/chat.py` |
-| ⏳ Pending | Extract grocery service | `app/services/grocery_service.py`, `app/routers/grocery.py` |
-| ⏳ Pending | Nutrition service + nutrition endpoint | `app/services/nutrition_service.py`, `app/routers/recipes.py` |
-
+| ✅ Done | AI client ABC | `app/clients/base.py` |
+| ✅ Done | FakeClient (recording test double) | `app/clients/fake.py`, `tests/fixtures/sample_recipes.json` |
+| ✅ Done | AnthropicClient (concrete provider) | `app/clients/anthropic_client.py` |
+| ✅ Done | Prompt templates | `app/utils/prompt_templates.py` |
+| ✅ Done | Client factory + settings wiring | `app/clients/factory.py`, `app/config.py` |
+| ✅ Done | Recipe service + generate-recipes endpoint | `app/services/recipe_service.py`, `app/routers/meal_plans.py` |
+| ✅ Done | Chat service + messages endpoint | `app/services/chat_service.py`, `app/routers/chat.py` |
+| ✅ Done | Extract grocery service | `app/services/grocery_service.py`, `app/routers/grocery.py` |
 ---
 
 ## Implementation notes
@@ -145,14 +128,13 @@ todos:
 Build in dependency order to avoid circular imports and keep tests passing at each step:
 
 1. `ai-base-client` — ABC and shared types
-2. `ai-test-client` — enables testing immediately
+2. `ai-fake-client` — enables testing immediately
 3. `prompt-templates` — pure string functions, no deps
 4. `ai-anthropic-client` — concrete provider
 5. `client-factory` — settings wiring
 6. `recipe-service` → wire into `meal_plans` router
 7. `chat-service` → wire into `chat` router
 8. `grocery-service` → extract from `grocery` router
-9. `nutrition-service` → wire into `recipes` router
 
 ### ABC contract
 
@@ -189,10 +171,7 @@ class AIClientBase(ABC):
     "instructions": "...",
     "ingredients": [
       {"name": "chicken breast", "quantity": 500, "unit": "g", "category": "meat"}
-    ],
-    "nutrition_estimate": {
-      "calories": 450, "protein_g": 35, "carbs_g": 30, "fat_g": 12, "per_serving": true
-    }
+    ]
   }
 ]
 ```
@@ -226,6 +205,6 @@ def my_endpoint(ai_client: AIClientBase = Depends(get_ai_client), ...):
 ### Testing
 
 - Always use `AI_PROVIDER=test` in tests (or override `get_ai_client` dependency).
-- Assert on `test_client.recorded_calls` to verify prompt content.
+- Assert on `fake.recorded_calls` to verify prompt content.
 - Use `tests/fixtures/sample_recipes.json` for deterministic recipe payloads.
 - Never set `ANTHROPIC_API_KEY` in test environment.
