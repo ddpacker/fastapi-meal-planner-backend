@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 
 from app.clients.fake import FakeClient
 from app.models.meal_plan import MealPlanWeek, PlannedMeal, PlannedMealRecipe
-from app.models.nutrition import NutritionInfo
 from app.models.recipe import Recipe, RecipeIngredient
 from app.models.user import User
 from app.services.recipe_service import generate_recipes_for_plan
@@ -68,18 +67,6 @@ class TestGenerateRecipesForPlan:
         # Both fixture recipes contain these
         assert "chicken breast" in names
         assert "broccoli florets" in names
-
-    def test_nutrition_info_persisted(self, db: Session, user: User, plan_with_meals: MealPlanWeek):
-        """NutritionInfo rows are created for recipes that include nutrition_estimate."""
-        client = FakeClient()
-
-        generate_recipes_for_plan(plan_with_meals.id, db, client, user)
-
-        nutrition_rows = db.query(NutritionInfo).all()
-        assert len(nutrition_rows) == 2
-        calories = {n.calories for n in nutrition_rows}
-        assert 450.0 in calories   # Chicken Tacos fixture
-        assert 220.0 in calories   # Vegetable Stir Fry fixture
 
     def test_planned_meal_status_updated(self, db: Session, user: User, plan_with_meals: MealPlanWeek):
         """PlannedMeal.status is set to 'planned' after recipe generation."""

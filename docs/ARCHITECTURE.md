@@ -127,14 +127,14 @@ flowchart TD
 
 - **Prompt templates** (`app/utils/prompt_templates.py`)
   - **Recipe generation prompt**: instruct the model to output structured JSON for each meal:
-    - title, servings, ingredients (name, quantity, unit, category), steps, and basic nutrition estimates.
+    - title, servings, instructions, and ingredients (name, quantity, unit, category).
   - **Chat modification prompt**: include current recipe JSON + chat history, ask the model to:
     - answer conversationally, and
     - optionally return a new revised recipe JSON when structural changes are requested (e.g., "make this vegetarian").
   - Templates remain **vendor-agnostic** string builders; providers only differ in how they send the assembled text.
 
 - **Parsing & validation**
-  - Deserialize the model’s structured output into Pydantic schemas (e.g., `RecipeCreate`, `RecipeIngredientCreate`, `NutritionInfoCreate`).
+  - Deserialize the model’s structured output into Pydantic schemas (e.g., `RecipeCreate`, `RecipeIngredientCreate`) before DB writes.
   - Validate before persisting to Postgres; handle errors gracefully (e.g., fallback to partial results or ask the client to re-try).
 
 ## 6. Grocery list & nutrition logic

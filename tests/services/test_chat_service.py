@@ -10,7 +10,6 @@ from app.models.chat import ChatMessage, ChatSession
 from app.models.nutrition import NutritionInfo
 from app.models.recipe import Recipe, RecipeIngredient
 from app.models.user import User
-from app.schemas.nutrition import NutritionInfoCreate
 from app.schemas.recipes import RecipeCreate, RecipeIngredientCreate
 from app.services.chat_service import send_message
 
@@ -102,7 +101,7 @@ class TestSendMessage:
         assert messages[1].role == "assistant"
         assert messages[1].content == "Here is your updated recipe."
 
-    def test_revised_recipe_updates_recipe_and_ingredients_not_nutrition_from_ai(
+    def test_revised_recipe_updates_recipe_and_ingredients_and_clears_stale_nutrition(
         self, db: Session, user: User, recipe_session: tuple[Recipe, ChatSession]
     ):
         recipe, chat = recipe_session
@@ -118,13 +117,6 @@ class TestSendMessage:
                     category="protein",
                 )
             ],
-            nutrition_estimate=NutritionInfoCreate(
-                calories=999,
-                protein_g=99,
-                carbs_g=99,
-                fat_g=99,
-                per_serving=True,
-            ),
         )
         client = FakeClient(chat_revised_recipe=revised)
 

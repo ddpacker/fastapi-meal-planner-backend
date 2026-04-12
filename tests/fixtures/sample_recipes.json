@@ -9,14 +9,7 @@
       {"name": "cumin", "quantity": 1, "unit": "tsp", "category": "spices"},
       {"name": "chili powder", "quantity": 1, "unit": "tsp", "category": "spices"},
       {"name": "lime", "quantity": 2, "unit": "pieces", "category": "produce"}
-    ],
-    "nutrition_estimate": {
-      "calories": 450,
-      "protein_g": 35,
-      "carbs_g": 30,
-      "fat_g": 12,
-      "per_serving": true
-    }
+    ]
   },
   {
     "title": "Vegetable Stir Fry",
@@ -28,13 +21,6 @@
       {"name": "soy sauce", "quantity": 3, "unit": "tbsp", "category": "condiments"},
       {"name": "garlic", "quantity": 3, "unit": "cloves", "category": "produce"},
       {"name": "sesame oil", "quantity": 1, "unit": "tbsp", "category": "oils"}
-    ],
-    "nutrition_estimate": {
-      "calories": 220,
-      "protein_g": 8,
-      "carbs_g": 28,
-      "fat_g": 9,
-      "per_serving": true
-    }
+    ]
   }
 ]

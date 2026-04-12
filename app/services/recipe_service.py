@@ -8,7 +8,6 @@ from fastapi import HTTPException, status
 from app.clients.base import AIClientBase
 from app.config import get_settings
 from app.models.meal_plan import MealPlanWeek, PlannedMeal, PlannedMealRecipe
-from app.models.nutrition import NutritionInfo
 from app.models.recipe import Recipe, RecipeIngredient
 from app.models.user import User
 
@@ -64,23 +63,6 @@ def generate_recipes_for_plan(
                     quantity=ing.quantity,
                     unit=ing.unit,
                     category=ing.category,
-                )
-            )
-
-        if recipe_create.nutrition_estimate is not None:
-            nu = recipe_create.nutrition_estimate
-            db.add(
-                NutritionInfo(
-                    recipe_id=recipe.id,
-                    calories=nu.calories,
-                    protein_g=nu.protein_g,
-                    carbs_g=nu.carbs_g,
-                    fat_g=nu.fat_g,
-                    fiber_g=nu.fiber_g,
-                    sugar_g=nu.sugar_g,
-                    sodium_mg=nu.sodium_mg,
-                    per_serving=nu.per_serving,
-                    source=nu.source or "ai_estimate",
                 )
             )
 
