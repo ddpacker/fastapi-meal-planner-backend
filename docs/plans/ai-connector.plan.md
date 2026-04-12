@@ -100,7 +100,7 @@ todos:
       generate_grocery_list(plan_id: int, db: Session, user: User) -> GroceryList
       The router's generate_grocery_list endpoint becomes a thin call to the service.
       No AI calls required for this task — aggregation is pure Python logic.
-    status: pending
+    status: done
     dependencies:
       - client-factory
 ---
@@ -118,7 +118,7 @@ todos:
 | ✅ Done | Client factory + settings wiring | `app/clients/factory.py`, `app/config.py` |
 | ✅ Done | Recipe service + generate-recipes endpoint | `app/services/recipe_service.py`, `app/routers/meal_plans.py` |
 | ✅ Done | Chat service + messages endpoint | `app/services/chat_service.py`, `app/routers/chat.py` |
-| ⏳ Pending | Extract grocery service | `app/services/grocery_service.py`, `app/routers/grocery.py` |
+| ✅ Done | Extract grocery service | `app/services/grocery_service.py`, `app/routers/grocery.py` |
 ---
 
 ## Implementation notes
