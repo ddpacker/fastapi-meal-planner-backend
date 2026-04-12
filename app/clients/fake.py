@@ -1,5 +1,5 @@
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 from app.clients.base import AIClientBase, ChatModifyResult
@@ -15,9 +15,10 @@ class RecordedCall:
 
 
 class FakeClient(AIClientBase):
-    def __init__(self) -> None:
+    def __init__(self, chat_revised_recipe: RecipeCreate | None = None) -> None:
         self.recorded_calls: list[RecordedCall] = []
         self._fixtures: list[dict] = json.loads(_FIXTURES_PATH.read_text())
+        self._chat_revised_recipe = chat_revised_recipe
 
     def generate_recipes(self, meal_names: list[str]) -> list[RecipeCreate]:
         self.recorded_calls.append(
@@ -47,5 +48,5 @@ class FakeClient(AIClientBase):
         )
         return ChatModifyResult(
             assistant_message="Here is your updated recipe.",
-            revised_recipe=None,
+            revised_recipe=self._chat_revised_recipe,
         )

@@ -1,39 +1,14 @@
 import datetime
-import pytest
 
-from sqlalchemy import create_engine
+import pytest
 from sqlalchemy.orm import Session
 
 from app.clients.fake import FakeClient
-from app.db.base_class import Base
-from app.models.chat import ChatMessage, ChatSession  # noqa: F401 — registers tables
-from app.models.grocery import GroceryList  # noqa: F401
 from app.models.meal_plan import MealPlanWeek, PlannedMeal, PlannedMealRecipe
 from app.models.nutrition import NutritionInfo
 from app.models.recipe import Recipe, RecipeIngredient
 from app.models.user import User
 from app.services.recipe_service import generate_recipes_for_plan
-
-
-@pytest.fixture()
-def db():
-    """Yield a Session backed by an in-memory SQLite database."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-    )
-    Base.metadata.create_all(engine)
-    with Session(engine) as session:
-        yield session
-    Base.metadata.drop_all(engine)
-
-
-@pytest.fixture()
-def user(db: Session) -> User:
-    u = User(email="test@example.com", password_hash="hashed")
-    db.add(u)
-    db.flush()
-    return u
 
 
 @pytest.fixture()

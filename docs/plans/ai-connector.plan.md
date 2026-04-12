@@ -88,7 +88,7 @@ todos:
         and returns all messages ordered by created_at asc.
       Wire into POST /chat-sessions/{session_id}/messages in app/routers/chat.py,
       replacing the current stub that echoes a placeholder assistant reply.
-    status: pending
+    status: done
     dependencies:
       - client-factory
       - prompt-templates
@@ -117,7 +117,7 @@ todos:
 | ✅ Done | Prompt templates | `app/utils/prompt_templates.py` |
 | ✅ Done | Client factory + settings wiring | `app/clients/factory.py`, `app/config.py` |
 | ✅ Done | Recipe service + generate-recipes endpoint | `app/services/recipe_service.py`, `app/routers/meal_plans.py` |
-| ⏳ Pending | Chat service + messages endpoint | `app/services/chat_service.py`, `app/routers/chat.py` |
+| ✅ Done | Chat service + messages endpoint | `app/services/chat_service.py`, `app/routers/chat.py` |
 | ⏳ Pending | Extract grocery service | `app/services/grocery_service.py`, `app/routers/grocery.py` |
 ---
 
