@@ -51,7 +51,7 @@ alembic/           # migrations only — no business logic
 2. `db-and-models` — SQLAlchemy models + Alembic env ✅
 3. `schemas-and-routers` — Pydantic schemas + router stubs ✅
 4. `ai-provider-integration` — ABC + clients + prompt templates + services
-5. `grocery-and-nutrition-services` — extract to service layer + AI nutrition
+5. `grocery-and-nutrition-services` — extract to service layer
 6. `tests-and-docs` — pytest suite + OpenAPI cleanup
 
 ## Comments and Docstrings

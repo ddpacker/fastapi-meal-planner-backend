@@ -54,14 +54,14 @@ class AIClientBase(ABC):
 
 - All prompt strings live here — nowhere else in the codebase.
 - `recipe_generation_prompt(meal_names: list[str]) -> str`
-  - Instruct the model to return a JSON array; each element: `title`, `servings`, `instructions` (str), `ingredients` (list of `{name, quantity, unit, category}`), `nutrition_estimate` (`{calories, protein_g, carbs_g, fat_g, per_serving: true}`).
+  - Instruct the model to return a JSON array; each element: `title`, `servings`, `instructions` (str), `ingredients` (list of `{name, quantity, unit, category}`)).
 - `chat_modify_prompt(recipe_json: str, history: list[dict], user_message: str) -> str`
   - Include current recipe JSON, chat history, and user request.
   - Ask for a conversational reply and an optional revised recipe JSON block when structural changes are requested.
 
 ## Parsing and validation
 
-- Deserialise AI output into Pydantic schemas (`RecipeCreate`, `NutritionInfoCreate`, etc.) using `model_validate` before any DB write.
+- Deserialise AI output into Pydantic schemas (`RecipeCreate` etc.) using `model_validate` before any DB write.
 - On `ValidationError`: catch it and raise `HTTPException(status_code=422, detail=...)`.
 - On missing or malformed JSON in the response: raise `HTTPException(status_code=502, detail="AI returned invalid response")`.
 
@@ -76,10 +76,7 @@ class AIClientBase(ABC):
     "instructions": "...",
     "ingredients": [
       {"name": "chicken breast", "quantity": 500, "unit": "g", "category": "meat"}
-    ],
-    "nutrition_estimate": {
-      "calories": 450, "protein_g": 35, "carbs_g": 30, "fat_g": 12, "per_serving": true
-    }
+    ]
   }
 ]
 ```

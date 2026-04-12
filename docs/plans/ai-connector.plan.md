@@ -43,9 +43,8 @@ todos:
     content: >
       Create app/utils/prompt_templates.py with two functions:
       recipe_generation_prompt(meal_names: list[str]) -> str — instructs the model to return a
-      JSON array where each element has: title, servings, instructions (string), ingredients
-      (list of {name, quantity, unit, category}), and nutrition_estimate
-      ({calories, protein_g, carbs_g, fat_g, per_serving: true}).
+      JSON array where each element has: title, servings, instructions (string), and ingredients
+      (list of {name, quantity, unit, category}).
       chat_modify_prompt(recipe_json: str, history: list[dict], user_message: str) -> str —
       includes current recipe JSON, chat history, and user request; asks for a conversational
       reply and optionally a revised recipe JSON block when structural changes are requested.

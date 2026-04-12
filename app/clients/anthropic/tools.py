@@ -17,18 +17,7 @@ _RECIPE_SCHEMA = {
         "title": {"type": "string"},
         "servings": {"type": "integer"},
         "instructions": {"type": "string"},
-        "ingredients": {"type": "array", "items": _INGREDIENT_SCHEMA},
-        "nutrition_estimate": {
-            "type": "object",
-            "properties": {
-                "calories": {"type": "number"},
-                "protein_g": {"type": "number"},
-                "carbs_g": {"type": "number"},
-                "fat_g": {"type": "number"},
-                "per_serving": {"type": "boolean"},
-            },
-            "required": ["calories", "protein_g", "carbs_g", "fat_g", "per_serving"],
-        },
+        "ingredients": {"type": "array", "items": _INGREDIENT_SCHEMA}
     },
     "required": ["title", "servings", "instructions", "ingredients"],
 }

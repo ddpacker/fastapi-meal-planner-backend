@@ -109,7 +109,7 @@ flowchart TD
   - `PATCH /grocery-items/{item_id}` – toggle `checked` or adjust quantities.
 
 - **Nutrition endpoints** (`/nutrition` router)
-  - `POST /recipes/{recipe_id}/nutrition` – calculate or refresh nutrition info for a recipe (via AI and/or external API).
+  - `POST /recipes/{recipe_id}/nutrition` – calculate or refresh nutrition info for a recipe.
   - `GET /recipes/{recipe_id}/nutrition` – fetch stored `NutritionInfo`.
 
 ## 5. AI provider integration & prompt strategy
