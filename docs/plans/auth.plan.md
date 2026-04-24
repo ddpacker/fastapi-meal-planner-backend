@@ -50,7 +50,7 @@ todos:
       denylist: store revoked JTI (JWT ID) values in Redis (or a DB table) with TTL equal to the
       token's remaining lifetime. Add jti claim to create_access_token. Check denylist in
       get_current_user before accepting a token.
-    status: pending
+    status: done
     dependencies:
       - user-persistence
 
@@ -78,7 +78,7 @@ todos:
 | ✅ Done | User Pydantic schemas | `app/schemas/auth.py` |
 | ✅ Done | User SQLAlchemy model + DB persistence | `app/models/user.py` |
 | ✅ Done | Google OIDC social login + `google_sub` column | `app/routers/auth.py`, `app/services/google_oidc.py`, Alembic `b0dc7aebe1e7` |
-| ⏳ Pending | Logout with JTI denylist (Redis or DB) | `app/routers/auth.py`, `app/core/security.py` |
+| ✅ Done | Logout with JTI denylist (`revoked_tokens` table) | `app/routers/auth.py`, `app/core/security.py`, `app/core/deps.py`, `app/services/token_revocation.py` |
 | ⏳ Pending | Dedicated auth tests | `tests/routers/test_auth.py`, `tests/core/test_security.py` |
 
 ---
