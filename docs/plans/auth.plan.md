@@ -35,14 +35,11 @@ todos:
   - id: google-oidc
     content: >
       Set up Google OAuth 2.0 / OIDC callback flow for social login.
-      Add authlib (or httpx + manual OIDC) to pyproject.toml. Configure GOOGLE_CLIENT_ID and
-      GOOGLE_CLIENT_SECRET in app/config.py. Implement two endpoints in app/routers/auth.py:
-        GET /auth/google — redirect to Google's authorization URL
-        GET /auth/google/callback — exchange code for tokens, validate ID token, upsert User
-          row (create on first login, look up by google_sub on return), issue our own JWT.
-      Add google_sub (nullable, unique) column to the User model + Alembic migration.
-      Link existing email/password accounts when the email matches.
-    status: pending
+      Implemented with httpx + manual OIDC in app/services/google_oidc.py; settings
+      GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI in app/config.py; endpoints
+      GET /auth/google and GET /auth/google/callback in app/routers/auth.py; User.google_sub email match
+      links existing accounts (409 if email is tied to another google_sub).
+    status: done
     dependencies:
       - user-persistence
 
@@ -80,7 +77,7 @@ todos:
 | ✅ Done | Email/password register + login endpoints | `app/routers/auth.py` |
 | ✅ Done | User Pydantic schemas | `app/schemas/auth.py` |
 | ✅ Done | User SQLAlchemy model + DB persistence | `app/models/user.py` |
-| ⏳ Pending | Google OIDC social login + `google_sub` column | `app/routers/auth.py`, new Alembic migration |
+| ✅ Done | Google OIDC social login + `google_sub` column | `app/routers/auth.py`, `app/services/google_oidc.py`, Alembic `b0dc7aebe1e7` |
 | ⏳ Pending | Logout with JTI denylist (Redis or DB) | `app/routers/auth.py`, `app/core/security.py` |
 | ⏳ Pending | Dedicated auth tests | `tests/routers/test_auth.py`, `tests/core/test_security.py` |
 
