@@ -89,6 +89,7 @@ flowchart TD
 - **Auth endpoints** (`/auth` router)
   - `POST /auth/register` – create user (email/password).
   - `POST /auth/login` – return JWT for authenticated requests.
+  - `POST /auth/logout` – revoke the current access token (JTI in `revoked_tokens`); subsequent use returns 401.
   - `GET /auth/google` – redirect to Google (503 if not configured).
   - `GET /auth/google/callback` – OAuth code exchange, ID token verification, JWT issuance (links by email to existing users via `google_sub`).
 

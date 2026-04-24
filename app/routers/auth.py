@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
@@ -5,10 +7,12 @@ from itsdangerous import BadSignature, SignatureExpired
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
+from app.core.deps import get_current_token_payload, get_current_user
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.auth import Token, UserCreate, UserRead
+from app.schemas.auth import Token, TokenPayload, UserCreate, UserRead
+from app.services.token_revocation import revoke_jti
 from app.services.google_oidc import (
     build_google_authorization_url,
     complete_google_login,
@@ -51,6 +55,21 @@ def login_for_access_token(
 
     access_token = create_access_token(subject=str(user.id))
     return Token(access_token=access_token)
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(
+    db: Session = Depends(get_db),
+    payload: TokenPayload = Depends(get_current_token_payload),
+    _user: User = Depends(get_current_user),
+) -> None:
+    if not payload.jti or payload.exp is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token cannot be revoked",
+        )
+    expires_at = datetime.fromtimestamp(payload.exp, tz=timezone.utc)
+    revoke_jti(db, payload.jti, expires_at)
 
 
 @router.get("/google")
