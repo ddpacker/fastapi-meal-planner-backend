@@ -15,9 +15,9 @@ FastAPI + PostgreSQL backend for a weekly meal planning assistant. A provider-ag
 - SQLAlchemy>=2.0.36 (2.0 style ORM), alembic>=1.18.4
 - psycopg[binary]>=3.3.3 (psycopg3 — NOT psycopg2 syntax)
 - pydantic[email]==2.12+, pydantic-settings==2.13+
-- passlib==1.7.4, python-jose==3.3.0
+- passlib==1.7.4, python-jose==3.3.0, bcrypt 4.x (bcrypt backend), httpx, itsdangerous
 - anthropic SDK (add via `uv add anthropic` when implementing AI layer)
-- pytest (add via `uv add --dev pytest httpx` when writing tests)
+- pytest (add via `uv add --dev pytest` when writing tests)
 
 ## Directory layout (do not deviate)
 
@@ -35,7 +35,7 @@ app/
   models/          # SQLAlchemy models: chat, grocery, meal_plan, nutrition, recipe, user
   schemas/         # Pydantic v2 schemas
   routers/         # auth, chat, grocery, meal_plans, recipes
-  services/        # meal_plan_service, recipe_service, grocery_service, nutrition_service
+  services/        # meal_plan_service, recipe_service, grocery_service, nutrition_service, google_oidc
   clients/
     base.py               # ABC defining generate_recipes / chat_modify contract
     anthropic_client.py   # Anthropic concrete implementation

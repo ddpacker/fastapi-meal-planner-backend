@@ -8,7 +8,7 @@ alwaysApply: false
 
 - JWT issued at `POST /auth/login`; verified by `get_current_user` in `app/core/deps.py`.
 - `get_current_user` is a FastAPI dependency — inject it as `current_user: User = Depends(get_current_user)`.
-- Every endpoint requires `current_user` **except** `POST /auth/register` and `POST /auth/login`.
+- Every endpoint requires `current_user` **except** `POST /auth/register`, `POST /auth/login`, `GET /auth/google`, and `GET /auth/google/callback`.
 - JWT secret from `settings.secret_key` — never hardcode.
 
 ## Passwords

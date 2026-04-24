@@ -16,10 +16,12 @@ dependencies = [
     "python-multipart>=0.0.22",
     "alembic>=1.18.4",
     "anthropic>=0.93.0",
+    "httpx>=0.28.1",
+    "itsdangerous>=2.2.0",
+    "bcrypt>=4.0.1,<5",
 ]
 
 [dependency-groups]
 dev = [
-    "httpx>=0.28.1",
     "pytest>=9.0.3",
 ]
