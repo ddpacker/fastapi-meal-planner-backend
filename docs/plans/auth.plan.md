@@ -37,8 +37,8 @@ todos:
       Set up Google OAuth 2.0 / OIDC callback flow for social login.
       Implemented with httpx + manual OIDC in app/services/google_oidc.py; settings
       GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI in app/config.py; endpoints
-      GET /auth/google and GET /auth/google/callback in app/routers/auth.py; User.google_sub email match
-      links existing accounts (409 if email is tied to another google_sub).
+      GET /auth/google and GET /auth/google/callback in app/routers/auth.py; User.google_sub
+       email match links existing accounts (409 if email is tied to another google_sub).
     status: done
     dependencies:
       - user-persistence

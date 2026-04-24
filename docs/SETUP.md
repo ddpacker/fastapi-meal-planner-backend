@@ -25,6 +25,11 @@ SECRET_KEY=<SECRET-KEY>
 ANTHROPIC_API_KEY=<ANTHROPIC_API_KEY>
 ANTHROPIC_MODEL=<ANTHROPIC_MODEL>
 AI_PROVIDER=anthropic
+
+# Optional — Google OAuth / OIDC (`GET /auth/google`, `GET /auth/google/callback`)
+GOOGLE_CLIENT_ID=<GOOGLE_CLIENT_ID>
+GOOGLE_CLIENT_SECRET=<GOOGLE_CLIENT_SECRET>
+GOOGLE_REDIRECT_URI=http://localhost:8000/auth/google/callback
 ```
 
 ---

@@ -5,7 +5,7 @@ to generate recipes, support per-meal chat refinement, build grocery lists, and 
 
 ## Features
 
-- **User auth** with JWT (email + password).
+- **User auth** with JWT (email + password; optional Google OIDC when configured).
 - **Weekly meal plans** with AI-generated recipes
 - **Per-meal chat sessions** to iteratively refine recipes.
 - **Grocery list generation** from all ingredients in a week.

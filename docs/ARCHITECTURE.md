@@ -53,7 +53,7 @@ flowchart TD
 
 - **Users** (`User`)
   - Fields: `id`, `email`, `password_hash`, timestamps.
-  - For now, simple email+password; later can plug in OAuth/identity provider.
+  - Email/password plus optional Google OIDC (`GET /auth/google`, `GET /auth/google/callback`) when `GOOGLE_*` settings are set.
 
 - **Meal planning & recipes**
   - `MealPlanWeek` – a weekly plan per user.
@@ -87,8 +87,10 @@ flowchart TD
 ## 4. API endpoint design
 
 - **Auth endpoints** (`/auth` router)
-  - `POST /auth/register` – create user (basic email/password for now).
+  - `POST /auth/register` – create user (email/password).
   - `POST /auth/login` – return JWT for authenticated requests.
+  - `GET /auth/google` – redirect to Google (503 if not configured).
+  - `GET /auth/google/callback` – OAuth code exchange, ID token verification, JWT issuance (links by email to existing users via `google_sub`).
 
 - **Meal plan & recipe endpoints** (`/meal-plans`, `/recipes` routers)
   - `POST /meal-plans` – create a new weekly meal plan with up to 7 meal plan names attached.
