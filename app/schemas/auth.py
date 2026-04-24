@@ -28,4 +28,5 @@ class Token(BaseModel):
 class TokenPayload(BaseModel):
     sub: str | None = None
     exp: int | None = None
+    jti: str | None = None
 
