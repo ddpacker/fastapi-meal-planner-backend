@@ -106,11 +106,13 @@ todos:
 
   - id: generate-recipes-course-signature
     content: >
-      Update AIClientBase.generate_recipes() signature from list[str] to
-      list[tuple[str, list[MealCourseRole]]] (meal_name + requested courses).
-      Update AnthropicClient, FakeClient, recipe_generation_prompt(), and
-      recipe_service accordingly. The prompt should instruct the AI to return one
-      recipe per course slot per meal, labelled with the course role.
+      Update AIClientBase.generate_recipes() signature to accept structured meal input:
+        list[MealInput] where MealInput = (meal_name: str, courses: list[CourseInput])
+        and CourseInput = (role: MealCourseRole, description: str | None).
+      The prompt instructs the AI to return one recipe per course per meal, using the
+      description as a specific hint when provided (e.g. "Bourbon Apple Marinaded Pork Chop")
+      and deciding freely from the meal name when description is null.
+      Update AnthropicClient, FakeClient, recipe_generation_prompt(), and recipe_service.
       See meal.plan.md / meal-course-generation for the service-side changes.
     status: pending
     dependencies:
