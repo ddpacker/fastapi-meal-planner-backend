@@ -62,7 +62,7 @@ todos:
       token 401. Create tests/core/test_security.py covering: create_access_token round-trips,
       decode_token rejects expired/tampered tokens. Use the existing conftest.py fixtures.
       Tests for other routers already assert 401 on missing auth headers.
-    status: pending
+    status: done
     dependencies:
       - setup-jwt
 ---
@@ -79,7 +79,7 @@ todos:
 | ✅ Done | User SQLAlchemy model + DB persistence | `app/models/user.py` |
 | ✅ Done | Google OIDC social login + `google_sub` column | `app/routers/auth.py`, `app/services/google_oidc.py`, Alembic `b0dc7aebe1e7` |
 | ✅ Done | Logout with JTI denylist (`revoked_tokens` table) | `app/routers/auth.py`, `app/core/security.py`, `app/core/deps.py`, `app/services/token_revocation.py` |
-| ⏳ Pending | Dedicated auth tests | `tests/routers/test_auth.py`, `tests/core/test_security.py` |
+| ✅ Done | Dedicated auth tests | `tests/routers/test_auth.py`, `tests/core/test_security.py` |
 
 ---
 

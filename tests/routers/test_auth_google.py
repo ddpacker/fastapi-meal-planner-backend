@@ -76,3 +76,32 @@ def test_google_callback_rejects_bad_code(db, client_google_configured: TestClie
         app.dependency_overrides.clear()
 
     assert response.status_code == 400
+
+
+def test_google_callback_conflict_for_email_linked_to_other_google_sub(
+    db, client_google_configured: TestClient, monkeypatch
+) -> None:
+    from app.routers import auth as auth_router
+    from app.services.google_oidc import sign_google_oauth_state
+
+    settings = get_settings()
+    state = sign_google_oauth_state(settings.secret_key)
+
+    def override_db():
+        yield db
+
+    def mock_complete_google_login(*_args, **_kwargs):
+        raise ValueError("google_account_mismatch")
+
+    app.dependency_overrides[get_db] = override_db
+    monkeypatch.setattr(auth_router, "complete_google_login", mock_complete_google_login)
+    try:
+        response = client_google_configured.get(
+            "/auth/google/callback",
+            params={"code": "valid-code", "state": state},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "This email is already linked to a different Google account"
