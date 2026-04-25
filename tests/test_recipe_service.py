@@ -66,7 +66,7 @@ class TestGenerateRecipesForPlan:
         names = {i.name for i in ingredients}
         # Both fixture recipes contain these
         assert "chicken breast" in names
-        assert "broccoli florets" in names
+        assert "broccoli floret" in names
 
     def test_planned_meal_status_updated(self, db: Session, user: User, plan_with_meals: MealPlanWeek):
         """PlannedMeal.status is set to 'planned' after recipe generation."""
