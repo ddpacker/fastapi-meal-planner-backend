@@ -24,7 +24,7 @@ _RECIPE_SCHEMA = {
 
 GENERATE_RECIPES_TOOL = {
     "name": "submit_recipes",
-    "description": "Submit the generated recipes as structured data.",
+    "description": "Submit the generated recipes. The tool input must be a single object with a property named 'recipes' (array of recipe objects), one per planned meal, in the same order as the user list.",
     "input_schema": {
         "type": "object",
         "properties": {
