@@ -16,6 +16,7 @@ alwaysApply: false
 # app/clients/base.py
 from abc import ABC, abstractmethod
 from app.schemas.recipes import RecipeCreate
+from app.models.meal_plan import MealCourseRole  # starter|entree|side|dessert
 
 class ChatModifyResult:
     assistant_message: str
@@ -23,7 +24,12 @@ class ChatModifyResult:
 
 class AIClientBase(ABC):
     @abstractmethod
-    def generate_recipes(self, meal_names: list[str]) -> list[RecipeCreate]: ...
+    def generate_recipes(
+        self,
+        meals: list[tuple[str, list[MealCourseRole]]],  # (meal_name, courses)
+    ) -> list[RecipeCreate]: ...
+    # Returns one RecipeCreate per (meal, course) pair, each labelled with its role.
+    # Pending migration from list[str] — see ai-connector.plan.md / generate-recipes-course-signature.
 
     @abstractmethod
     def chat_modify(
@@ -53,11 +59,14 @@ class AIClientBase(ABC):
 ## Prompt templates (`app/utils/prompt_templates.py`)
 
 - All prompt strings live here — nowhere else in the codebase.
-- `recipe_generation_prompt(meal_names: list[str]) -> str`
-  - Instruct the model to return a JSON array; each element: `title`, `servings`, `instructions` (str), `ingredients` (list of `{name, quantity, unit, category}`)).
+- `recipe_generation_prompt(meals: list[tuple[str, list[MealCourseRole]]]) -> str`
+  - Instruct the model to return a JSON array; each element: `title`, `servings`, `instructions` (str), `ingredients` (list of `{name, quantity, unit, category}`), `role` (MealCourseRole).
+  - **Ingredient names and units must be singular** (e.g. "carrot" not "carrots", "cup" not "cups") — required for clean USDA FoodData Central lookups.
+  - **All quantities must be in metric units** (gram, ml, litre, etc.) — never imperial. The frontend handles unit display conversion based on user preferences.
 - `chat_modify_prompt(recipe_json: str, history: list[dict], user_message: str) -> str`
   - Include current recipe JSON, chat history, and user request.
   - Ask for a conversational reply and an optional revised recipe JSON block when structural changes are requested.
+  - Revised recipe must also follow singular names and metric units conventions.
 
 ## Parsing and validation
 
@@ -67,19 +76,22 @@ class AIClientBase(ABC):
 
 ## Required AI output shapes
 
-**Recipe generation** — JSON array:
+**Recipe generation** — JSON array (one element per meal+course pair):
 ```json
 [
   {
-    "title": "Chicken Tacos",
+    "title": "Chicken Taco",
+    "role": "entree",
     "servings": 4,
     "instructions": "...",
     "ingredients": [
-      {"name": "chicken breast", "quantity": 500, "unit": "g", "category": "meat"}
+      {"name": "chicken breast", "quantity": 500, "unit": "gram", "category": "meat"},
+      {"name": "carrot", "quantity": 120, "unit": "gram", "category": "produce"}
     ]
   }
 ]
 ```
+Ingredient names and units are singular. All quantities are metric.
 
 **Chat modify** — JSON object:
 ```json

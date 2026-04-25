@@ -34,8 +34,8 @@ app/
     session.py     # engine, SessionLocal, get_db dependency
   models/          # SQLAlchemy models: chat, grocery, meal_plan, nutrition, recipe, user
   schemas/         # Pydantic v2 schemas
-  routers/         # auth, chat, grocery, meal_plans, recipes
-  services/        # meal_plan_service, recipe_service, grocery_service, nutrition_service, google_oidc
+  routers/         # auth, chat, grocery, meal_plans, recipes, users
+  services/        # recipe_service, chat_service, grocery_service, nutrition_service, google_oidc, token_revocation
   clients/
     base.py               # ABC defining generate_recipes / chat_modify contract
     anthropic_client.py   # Anthropic concrete implementation
@@ -50,9 +50,9 @@ alembic/           # migrations only — no business logic
 1. `setup-fastapi-project` — skeleton, config, health endpoint ✅
 2. `db-and-models` — SQLAlchemy models + Alembic env ✅
 3. `schemas-and-routers` — Pydantic schemas + router stubs ✅
-4. `ai-provider-integration` — ABC + clients + prompt templates + services
-5. `grocery-and-nutrition-services` — extract to service layer
-6. `tests-and-docs` — pytest suite + OpenAPI cleanup
+4. `ai-provider-integration` — ABC + clients + prompt templates + services ✅
+5. `grocery-and-nutrition-services` — grocery service extracted ✅; nutrition service (USDA) pending
+6. Per-feature plans in `docs/plans/` are now the source of truth for remaining work
 
 ## Comments and Docstrings
 - Do not add docstrings to classes or functions whose name and signature are self-explanatory

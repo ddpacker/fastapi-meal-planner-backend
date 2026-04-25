@@ -103,6 +103,32 @@ todos:
     status: done
     dependencies:
       - client-factory
+
+  - id: generate-recipes-course-signature
+    content: >
+      Update AIClientBase.generate_recipes() signature from list[str] to
+      list[tuple[str, list[MealCourseRole]]] (meal_name + requested courses).
+      Update AnthropicClient, FakeClient, recipe_generation_prompt(), and
+      recipe_service accordingly. The prompt should instruct the AI to return one
+      recipe per course slot per meal, labelled with the course role.
+      See meal.plan.md / meal-course-generation for the service-side changes.
+    status: pending
+    dependencies:
+      - prompt-templates
+
+  - id: normalize-ingredient-output
+    content: >
+      Update recipe_generation_prompt() in app/utils/prompt_templates.py to instruct the
+      model to:
+      1. Return all ingredient names and unit names in singular form
+         (e.g. "carrot" not "carrots", "cup" not "cups") for clean USDA lookups.
+      2. Return all quantities in metric units (gram, ml, litre, etc.) — never imperial.
+         The frontend handles imperial display via user preferences (see user.plan.md).
+      Update tests/fixtures/sample_recipes.json to reflect both conventions so FakeClient
+      output stays consistent with the new prompt contract.
+    status: pending
+    dependencies:
+      - prompt-templates
 ---
 
 ## Roadmap
@@ -119,6 +145,8 @@ todos:
 | ✅ Done | Recipe service + generate-recipes endpoint | `app/services/recipe_service.py`, `app/routers/meal_plans.py` |
 | ✅ Done | Chat service + messages endpoint | `app/services/chat_service.py`, `app/routers/chat.py` |
 | ✅ Done | Extract grocery service | `app/services/grocery_service.py`, `app/routers/grocery.py` |
+| ⏳ Pending | Normalize ingredient/unit output to singular | `app/utils/prompt_templates.py`, `tests/fixtures/sample_recipes.json` |
+
 ---
 
 ## Implementation notes

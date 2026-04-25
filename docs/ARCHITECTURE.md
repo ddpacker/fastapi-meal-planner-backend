@@ -52,23 +52,27 @@ flowchart TD
 ## 3. Data model design (Postgres via SQLAlchemy)
 
 - **Users** (`User`)
-  - Fields: `id`, `email`, `password_hash`, timestamps.
+  - Fields: `id`, `email`, `password_hash`, `google_sub` (nullable), timestamps.
   - Email/password plus optional Google OIDC (`GET /auth/google`, `GET /auth/google/callback`) when `GOOGLE_*` settings are set.
+  - Related: `UserPreferences` (1:1) — stores `unit_system` (metric|imperial, default metric). The backend always stores and returns quantities in metric; `unit_system` is a frontend display hint only.
+  - Related: `RevokedToken` — JTI denylist for logout; rows expire naturally at token TTL.
 
 - **Meal planning & recipes**
   - `MealPlanWeek` – a weekly plan per user.
     - Fields: `id`, `user_id`, `start_date`, `end_date`, `title`, timestamps.
-  - `PlannedMeal` – one of the 7 meals in the week.
-    - Fields: `id`, `meal_plan_week_id`, `day_index` (0–6), `meal_name` (e.g., "Chicken Tacos"), `status` (draft/final), timestamps.
-  - `Recipe` – a recipe owned by a `User`, reusable across multiple meal plans.
-    - Fields: `id`, `user_id`, `title`, `instructions` (text/JSON blocks), `servings`, `source_model`, timestamps.
+  - `PlannedMeal` – one of up to 7 meals in the week.
+    - Fields: `id`, `meal_plan_week_id`, `day_index` (0–6), `meal_name`, `status` (draft|planned), `courses` (array of MealCourseRole, default `["entree"]`), timestamps.
+  - `Recipe` – a recipe owned by a `User`, persisted independently of meal plans.
+    - Fields: `id`, `user_id`, `title`, `instructions`, `servings`, `source_model`, timestamps.
+    - Recipes survive meal plan deletion and recipe regeneration. Only deleted explicitly by the user or via user account cascade.
   - `PlannedMealRecipe` – join table linking a `PlannedMeal` to one or more `Recipe` rows.
-    - Fields: `id`, `planned_meal_id`, `recipe_id`, `role` (e.g. entree/side).
-    - A `PlannedMeal` can have multiple recipes; a `Recipe` can appear in multiple planned meals.
+    - Fields: `id`, `planned_meal_id`, `recipe_id`, `role` (MealCourseRole: starter|entree|side|dessert).
+    - Supports up to one recipe per course per meal. Default course is `entree`.
 
 - **Ingredients & grocery items**
   - `RecipeIngredient`
-    - Fields: `id`, `recipe_id`, `name`, `quantity`, `unit`, optional `category` (produce/dairy/etc.).
+    - Fields: `id`, `recipe_id`, `name` (singular), `quantity` (Numeric), `unit` (singular, metric), `category`.
+    - AI is instructed to output singular names and metric units for clean USDA lookups.
   - `GroceryList` – per-week grocery aggregation.
     - Fields: `id`, `meal_plan_week_id`, `title`, `notes`, timestamps.
   - `GroceryItem`
@@ -76,13 +80,16 @@ flowchart TD
 
 - **Chat & AI interactions**
   - `ChatSession`
-    - Fields: `id`, `recipe_id` (or `planned_meal_id`), `user_id`, `title`, timestamps.
+    - Fields: `id`, `recipe_id`, `user_id`, `title`, timestamps.
   - `ChatMessage`
-    - Fields: `id`, `chat_session_id`, `role` (user/assistant/system), `content`, `created_at`.
+    - Fields: `id`, `chat_session_id`, `role` (user|assistant), `content`, `created_at`.
 
-- **Nutrition estimates**
+- **Nutrition**
   - `NutritionInfo`
-    - Fields: `id`, `recipe_id`, macro breakdown (`calories`, `protein_g`, `carbs_g`, `fat_g`, etc.), `per_serving` flag.
+    - Fields: `id`, `recipe_id`, macro breakdown (`calories`, `protein_g`, `carbs_g`, `fat_g`, `fiber_g`, `sugar_g`, `sodium_mg` — all nullable Numeric), `per_serving` (bool), `source` (usda|manual), timestamps.
+    - One-to-one with `Recipe`. Values are per serving when `per_serving=True`.
+  - `FoodNutritionCache` – USDA lookup cache.
+    - Fields: `id`, `name` (unique, indexed), `nutrient_data_json`, `fetched_at`. TTL: 30 days.
 
 ## 4. API endpoint design
 
@@ -93,26 +100,45 @@ flowchart TD
   - `GET /auth/google` – redirect to Google (503 if not configured).
   - `GET /auth/google/callback` – OAuth code exchange, ID token verification, JWT issuance (links by email to existing users via `google_sub`).
 
+- **User endpoints** (`/users` router)
+  - `GET /users/me` – get current user profile.
+  - `PATCH /users/me` – update email or password (requires current password for password change).
+  - `DELETE /users/me` – delete account and all owned data (requires password confirmation).
+  - `GET /users/me/preferences` – get user preferences (unit_system).
+  - `PATCH /users/me/preferences` – update preferences.
+
 - **Meal plan & recipe endpoints** (`/meal-plans`, `/recipes` routers)
-  - `POST /meal-plans` – create a new weekly meal plan with up to 7 meal plan names attached.
+  - `POST /meal-plans` – create a new weekly meal plan with up to 7 planned meals; each meal specifies a name and optional courses list (default `["entree"]`).
   - `GET /meal-plans` – list user’s meal plans.
-  - `GET /meal-plans/{plan_id}` – get one plan with its 7 `PlannedMeal` entries.
-  - `PUT /meal-plans/{plan_id}` – update plan metadata or meal names.
-  - `POST /meal-plans/{plan_id}/generate-recipes` – call the configured **AI provider** to generate a recipe for each planned meal; store `Recipe` + `RecipeIngredient` rows.
-  - `GET /meals/{meal_id}/recipe` – get the generated recipe + nutrition, if available.
+  - `GET /meal-plans/{plan_id}` – get one plan with nested `PlannedMeal` entries.
+  - `PUT /meal-plans/{plan_id}` – update plan title or meal list.
+  - `DELETE /meal-plans/{plan_id}` – delete plan (cascades to meals and grocery list; recipes are retained).
+  - `PATCH /meal-plans/{plan_id}/meals/{meal_id}` – update a single meal’s name, status, or courses list.
+  - `POST /meal-plans/{plan_id}/generate-recipes` – generate one recipe per course per meal via AI; store `Recipe` + `RecipeIngredient` + `PlannedMealRecipe` rows.
+  - `GET /recipes` – list user’s recipe library with optional search and pagination.
+  - `GET /recipes/{recipe_id}` – get recipe with ingredients.
+  - `POST /recipes` – manually create a recipe.
+  - `PUT /recipes/{recipe_id}` – update recipe and replace ingredient list.
+  - `DELETE /recipes/{recipe_id}` – delete recipe explicitly.
+  - `GET /recipes/meals/{meal_id}` – get recipes linked to a planned meal.
 
 - **Chat endpoints** (`/chat` router)
-  - `POST /recipes/{recipe_id}/chat-sessions` – create a new chat session for refining a recipe.
-  - `GET /chat-sessions/{session_id}` – retrieve chat history.
-  - `POST /chat-sessions/{session_id}/messages` – send a user message with a requested modification; call the **AI provider**, save assistant message, and update the underlying `Recipe`/`RecipeIngredient`.
+  - `POST /chat/recipes/{recipe_id}/chat-sessions` – create a new chat session for a recipe.
+  - `GET /chat/recipes/{recipe_id}/chat-sessions` – list all sessions for a recipe.
+  - `GET /chat/chat-sessions/{session_id}` – retrieve session with paginated messages.
+  - `POST /chat/chat-sessions/{session_id}/messages` – send a message; AI replies and optionally revises the recipe in place.
+  - `DELETE /chat/chat-sessions/{session_id}` – delete session and messages (does not revert recipe changes).
 
 - **Grocery list endpoints** (`/grocery` router)
-  - `POST /meal-plans/{plan_id}/grocery-list` – generate grocery list from all `RecipeIngredient` rows (aggregate by name+unit, categorize, store `GroceryList` + `GroceryItem`).
-  - `GET /grocery-lists/{list_id}` – get the grocery list.
-  - `PATCH /grocery-items/{item_id}` – toggle `checked` or adjust quantities.
+  - `POST /grocery/meal-plans/{plan_id}/grocery-list` – generate (or regenerate) grocery list; atomically replaces any existing list.
+  - `GET /grocery/grocery-lists/{list_id}` – get the grocery list with items.
+  - `PATCH /grocery/grocery-items/{item_id}` – toggle `checked` or adjust quantity.
+  - `POST /grocery/grocery-lists/{list_id}/items` – manually add an item.
+  - `DELETE /grocery/grocery-items/{item_id}` – remove an item.
+  - `GET /grocery/grocery-lists/{list_id}/export` – export list as grouped plain text.
 
-- **Nutrition endpoints** (`/nutrition` router)
-  - `POST /recipes/{recipe_id}/nutrition` – calculate or refresh nutrition info for a recipe.
+- **Nutrition endpoints** (`/recipes` router)
+  - `POST /recipes/{recipe_id}/nutrition` – fetch and persist nutrition via USDA lookup; upserts on repeat calls.
   - `GET /recipes/{recipe_id}/nutrition` – fetch stored `NutritionInfo`.
 
 ## 5. AI provider integration & prompt strategy
@@ -129,11 +155,13 @@ flowchart TD
   - Use in pytest and for manual runs when validating prompt parameterization only.
 
 - **Prompt templates** (`app/utils/prompt_templates.py`)
-  - **Recipe generation prompt**: instruct the model to output structured JSON for each meal:
-    - title, servings, instructions, and ingredients (name, quantity, unit, category).
+  - **Recipe generation prompt**: instruct the model to output structured JSON for each meal+course pair:
+    - `title`, `role` (MealCourseRole), `servings`, `instructions`, and `ingredients` (`name`, `quantity`, `unit`, `category`).
+    - Ingredient names and units must be **singular** (e.g. "carrot", "gram") for clean USDA lookups.
+    - All quantities must be in **metric units** — never imperial. The frontend converts for display based on `UserPreferences.unit_system`.
   - **Chat modification prompt**: include current recipe JSON + chat history, ask the model to:
     - answer conversationally, and
-    - optionally return a new revised recipe JSON when structural changes are requested (e.g., "make this vegetarian").
+    - optionally return a revised recipe JSON when structural changes are requested (same singular + metric conventions apply).
   - Templates remain **vendor-agnostic** string builders; providers only differ in how they send the assembled text.
 
 - **Parsing & validation**
@@ -149,13 +177,12 @@ flowchart TD
   - Persist `GroceryList` + `GroceryItem` records.
 
 - **Nutrition estimation** (`app/services/nutrition_service.py`)
-  - Integrate with a dedicated nutrition API for accurate per-serving macro data.
-  - `Edamam` was the first consideration due to its NLP parsing and dedicated meal planning endpoints, but its per-call cost structure and prohibition on caching creates linear API cost scaling with user activity. Since the AI layer outputs structured JSON for ingredients, the NLP capability doesn't justify the tradeoff.
-  - `USDA FoodData Central` enables local caching. Ingredients can be persisted indefinitely since nutritional data is effectively static. This flattens the cost curve at scale and improves response times after initial population. 
-  - Locally stored nutrient profiles also open the door to semantic ingredient queries via `pgvector` (e.g. swapping an ingredient for a leaner or keto-compatible alternative).
-  - Ingredient nutrient data will be stored using a hybrid approach in Postgres. Macro and micronutrients will be stored in normalized columns, and there will be an additional `raw_data` JSONB field to store other relevant data that may be referenced in future features.
-  - A cache-aside pattern will be used: On ingredient lookup, check local DB first and only hit the USDA API on a miss, then persist the result. For canonical key: see [Open Questions](#open-questions) below.
-  - Parse API responses into `NutritionInfo` records and persist to database.
+  - Uses USDA FoodData Central exclusively — no AI estimation, no Edamam.
+  - Per-ingredient lookup via `app/services/usda_client.py`; results scaled by quantity and summed across all ingredients, then divided by servings for per-serving totals.
+  - Cache-aside via `FoodNutritionCache` table: check DB first, hit USDA API on miss, persist result with `fetched_at`. TTL: 30 days. This flattens API cost at scale and enables future `pgvector` semantic ingredient queries.
+  - Unmatched ingredients leave their macro fields null (not zero) — null means unknown, zero means zero.
+  - `NutritionInfo.source` is set to `"usda"`. A `"manual"` source is reserved for a future user-entry endpoint.
+  - USDA API key configured via `USDA_API_KEY` env var (DEMO_KEY works for development).
 
 ## 7. Auth, security, and multi-user concerns
 
