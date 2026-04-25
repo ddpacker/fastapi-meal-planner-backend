@@ -1,5 +1,5 @@
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -9,14 +9,14 @@ from app.models.user import User
 from app.schemas.auth import TokenPayload
 from app.services.token_revocation import is_jti_revoked
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+http_bearer = HTTPBearer()
 
 
 def get_current_token_payload(
     db: Session = Depends(get_db),
-    token: str = Depends(oauth2_scheme),
+    credentials: HTTPAuthorizationCredentials = Depends(http_bearer),
 ) -> TokenPayload:
-    payload = decode_token(token)
+    payload = decode_token(credentials.credentials)
     if payload is None or not payload.sub:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
