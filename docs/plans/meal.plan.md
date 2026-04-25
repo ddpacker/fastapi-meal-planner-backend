@@ -27,10 +27,14 @@ todos:
     content: >
       Introduce a MealCourseRole enum (starter, entree, side, dessert) and migrate
       PlannedMealRecipe.role from a plain string to use it.
-      Add a courses column (Postgres array or JSON) to PlannedMeal to store which courses
-      the user wants for that meal. Default: ["entree"].
-      Alembic migration required for both changes.
-      Update PlannedMealCreate and PlannedMealRead schemas to include courses.
+      Replace the courses array column on PlannedMeal with a PlannedMealCourse table:
+        id, planned_meal_id, role (MealCourseRole), description (str, nullable).
+      description is an optional free-text hint per course (e.g. "Bourbon Apple Pork Chop").
+      The AI uses it to guide generation for that slot; null means AI decides freely.
+      Default behavior: one PlannedMealCourse row with role=entree and description=null.
+      Alembic migration required.
+      Update PlannedMealCreate to accept a list of PlannedMealCourseCreate
+        (role, description). Update PlannedMealRead to include nested PlannedMealCourseRead.
       Update PlannedMealRecipeRead to use MealCourseRole for role.
     status: pending
     dependencies:
@@ -39,10 +43,11 @@ todos:
   - id: meal-course-generation
     content: >
       Update recipe_service and AIClientBase.generate_recipes() to accept
-      (meal_name, courses) pairs instead of just meal_names, so the AI generates one
-      recipe per requested course per meal.
-      Update recipe_generation_prompt() in prompt_templates.py to include course context
-      per meal (e.g. "generate a starter, entree, and dessert for Taco Night").
+      (meal_name, courses) pairs where each course carries its role and optional description,
+      so the AI generates one recipe per course per meal, guided by the description when present.
+      Update recipe_generation_prompt() in prompt_templates.py to include course context per meal
+      (e.g. "generate an entree for Pork Night: Bourbon Apple Marinaded Pork Chop, and a side").
+      When description is null for a course, let the AI decide freely based on the meal name.
       Update FakeClient.generate_recipes() and sample_recipes.json fixture to reflect
       the new signature.
     status: pending
@@ -51,14 +56,18 @@ todos:
 
   - id: meal-course-edit
     content: >
-      When a user edits the courses list on an existing PlannedMeal via
+      When a user edits courses on an existing PlannedMeal via
       PATCH /meal-plans/{plan_id}/meals/{meal_id}:
-      - Removed course: delete the PlannedMealRecipe row for that role (and orphaned Recipe).
-      - Added course: call recipe_service.generate_recipe_for_course(planned_meal, role)
-        to generate a single new recipe for that slot without touching existing recipes.
-      - Changed course (remove + add): treat as the two operations above in sequence.
-      generate_recipe_for_course() is a new focused path in recipe_service alongside the
-      existing full-plan generation.
+      - Removed course: delete the PlannedMealCourse row, the linked PlannedMealRecipe, and
+        the orphaned Recipe.
+      - Added course: insert a PlannedMealCourse row (role + optional description), then call
+        recipe_service.generate_recipe_for_course(planned_meal, course) to generate one recipe
+        for that slot without touching existing courses.
+      - Description-only change (same role, new description): update PlannedMealCourse.description
+        and regenerate only that course's recipe.
+      - Changed role (remove + add): treat as remove then add in sequence.
+      generate_recipe_for_course() is a focused path in recipe_service alongside the existing
+      full-plan generation.
     status: pending
     dependencies:
       - meal-course-generation
@@ -129,7 +138,8 @@ todos:
 
 ### Models involved
 - `MealPlanWeek` — id, user_id, start_date, end_date, title; cascades to PlannedMeal + GroceryList
-- `PlannedMeal` — id, meal_plan_week_id, day_index (0–6), meal_name, status (draft/planned), courses (array, default ["entree"])
+- `PlannedMeal` — id, meal_plan_week_id, day_index (0–6), meal_name, status (draft/planned)
+- `PlannedMealCourse` — id, planned_meal_id, role (MealCourseRole), description (nullable str); one row per course slot; default is a single row with role=entree
 - `PlannedMealRecipe` — join table with role (MealCourseRole enum); links PlannedMeal ↔ Recipe
 
 ### PlannedMeal status enum
