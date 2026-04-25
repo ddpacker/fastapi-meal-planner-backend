@@ -4,11 +4,11 @@
     "servings": 4,
     "instructions": "Season chicken with cumin, chili powder, salt, and pepper. Cook in a skillet over medium-high heat for 6-7 minutes per side until cooked through. Slice and serve in warmed tortillas with toppings.",
     "ingredients": [
-      {"name": "chicken breast", "quantity": 500, "unit": "g", "category": "meat"},
-      {"name": "flour tortillas", "quantity": 8, "unit": "pieces", "category": "grains"},
-      {"name": "cumin", "quantity": 1, "unit": "tsp", "category": "spices"},
-      {"name": "chili powder", "quantity": 1, "unit": "tsp", "category": "spices"},
-      {"name": "lime", "quantity": 2, "unit": "pieces", "category": "produce"}
+      {"name": "chicken breast", "quantity": 500, "unit": "gram", "category": "meat"},
+      {"name": "flour tortilla", "quantity": 8, "unit": "piece", "category": "grains"},
+      {"name": "cumin", "quantity": 2, "unit": "gram", "category": "spices"},
+      {"name": "chili powder", "quantity": 2, "unit": "gram", "category": "spices"},
+      {"name": "lime", "quantity": 2, "unit": "piece", "category": "produce"}
     ]
   },
   {
@@ -16,11 +16,11 @@
     "servings": 2,
     "instructions": "Heat oil in a wok over high heat. Add garlic and ginger, cook 30 seconds. Add vegetables and stir fry for 5-7 minutes. Add soy sauce and sesame oil, toss to combine. Serve over rice.",
     "ingredients": [
-      {"name": "broccoli florets", "quantity": 200, "unit": "g", "category": "produce"},
-      {"name": "bell pepper", "quantity": 1, "unit": "pieces", "category": "produce"},
-      {"name": "soy sauce", "quantity": 3, "unit": "tbsp", "category": "condiments"},
-      {"name": "garlic", "quantity": 3, "unit": "cloves", "category": "produce"},
-      {"name": "sesame oil", "quantity": 1, "unit": "tbsp", "category": "oils"}
+      {"name": "broccoli floret", "quantity": 200, "unit": "gram", "category": "produce"},
+      {"name": "bell pepper", "quantity": 1, "unit": "piece", "category": "produce"},
+      {"name": "soy sauce", "quantity": 45, "unit": "millilitre", "category": "condiments"},
+      {"name": "garlic clove", "quantity": 3, "unit": "piece", "category": "produce"},
+      {"name": "sesame oil", "quantity": 15, "unit": "millilitre", "category": "oils"}
     ]
   }
 ]

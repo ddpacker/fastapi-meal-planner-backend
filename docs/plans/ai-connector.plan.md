@@ -126,7 +126,7 @@ todos:
          The frontend handles imperial display via user preferences (see user.plan.md).
       Update tests/fixtures/sample_recipes.json to reflect both conventions so FakeClient
       output stays consistent with the new prompt contract.
-    status: pending
+    status: done
     dependencies:
       - prompt-templates
 ---
@@ -145,7 +145,7 @@ todos:
 | ✅ Done | Recipe service + generate-recipes endpoint | `app/services/recipe_service.py`, `app/routers/meal_plans.py` |
 | ✅ Done | Chat service + messages endpoint | `app/services/chat_service.py`, `app/routers/chat.py` |
 | ✅ Done | Extract grocery service | `app/services/grocery_service.py`, `app/routers/grocery.py` |
-| ⏳ Pending | Normalize ingredient/unit output to singular | `app/utils/prompt_templates.py`, `tests/fixtures/sample_recipes.json` |
+| ✅ Done | Normalize ingredient/unit output to singular | `app/utils/prompt_templates.py`, `tests/fixtures/sample_recipes.json` |
 
 ---
 
