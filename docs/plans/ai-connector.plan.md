@@ -114,7 +114,7 @@ todos:
       and deciding freely from the meal name when description is null.
       Update AnthropicClient, FakeClient, recipe_generation_prompt(), and recipe_service.
       See meal.plan.md / meal-course-generation for the service-side changes.
-    status: pending
+    status: done
     dependencies:
       - prompt-templates
 
@@ -171,6 +171,7 @@ Build in dependency order to avoid circular imports and keep tests passing at ea
 ```python
 # app/clients/base.py
 from abc import ABC, abstractmethod
+from app.models.meal_plan import MealCourseRole
 from app.schemas.recipes import RecipeCreate
 
 class ChatModifyResult:
@@ -179,7 +180,10 @@ class ChatModifyResult:
 
 class AIClientBase(ABC):
     @abstractmethod
-    def generate_recipes(self, meal_names: list[str]) -> list[RecipeCreate]: ...
+    def generate_recipes(
+        self,
+        meals: list[tuple[str, list[tuple[MealCourseRole, str | None]]]],
+    ) -> list[RecipeCreate]: ...
 
     @abstractmethod
     def chat_modify(
@@ -197,6 +201,7 @@ class AIClientBase(ABC):
 [
   {
     "title": "Chicken Tacos",
+    "role": "entree",
     "servings": 4,
     "instructions": "...",
     "ingredients": [

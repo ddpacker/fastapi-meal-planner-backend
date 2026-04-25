@@ -4,7 +4,7 @@ from anthropic import Anthropic
 from fastapi import HTTPException, status
 from pydantic import ValidationError
 
-from app.clients.base import AIClientBase, ChatModifyResult
+from app.clients.base import AIClientBase, ChatModifyResult, MealGenerationMeal
 from app.clients.anthropic.tools import CHAT_MODIFY_TOOL, GENERATE_RECIPES_TOOL
 from app.schemas.recipes import RecipeCreate
 from app.utils.prompt_templates import chat_modify_prompt, recipe_generation_prompt
@@ -17,8 +17,8 @@ class AnthropicClient(AIClientBase):
         self._client = Anthropic(api_key=api_key)
         self._model = model
 
-    def generate_recipes(self, meal_names: list[str]) -> list[RecipeCreate]:
-        prompt = recipe_generation_prompt(meal_names)
+    def generate_recipes(self, meals: list[MealGenerationMeal]) -> list[RecipeCreate]:
+        prompt = recipe_generation_prompt(meals)
         message = self._client.messages.create(
             model=self._model,
             max_tokens=4096,

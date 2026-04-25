@@ -2,7 +2,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from app.clients.base import AIClientBase, ChatModifyResult
+from app.clients.base import AIClientBase, ChatModifyResult, MealGenerationMeal
+from app.models.meal_plan import MealCourseRole
 from app.schemas.recipes import RecipeCreate
 
 _FIXTURES_PATH = Path(__file__).parent.parent.parent / "tests" / "fixtures" / "sample_recipes.json"
@@ -20,14 +21,19 @@ class FakeClient(AIClientBase):
         self._fixtures: list[dict] = json.loads(_FIXTURES_PATH.read_text())
         self._chat_revised_recipe = chat_revised_recipe
 
-    def generate_recipes(self, meal_names: list[str]) -> list[RecipeCreate]:
+    def generate_recipes(self, meals: list[MealGenerationMeal]) -> list[RecipeCreate]:
         self.recorded_calls.append(
-            RecordedCall(method="generate_recipes", kwargs={"meal_names": meal_names})
+            RecordedCall(method="generate_recipes", kwargs={"meals": meals})
         )
-        recipes = [
-            RecipeCreate.model_validate(self._fixtures[i % len(self._fixtures)])
-            for i in range(len(meal_names))
-        ]
+        slots: list[tuple[str, MealCourseRole, str | None]] = []
+        for meal_name, courses in meals:
+            for role, description in courses:
+                slots.append((meal_name, role, description))
+        recipes: list[RecipeCreate] = []
+        for i, (_meal_name, role, _description) in enumerate(slots):
+            raw = dict(self._fixtures[i % len(self._fixtures)])
+            raw["role"] = role.value
+            recipes.append(RecipeCreate.model_validate(raw))
         return recipes
 
     def chat_modify(

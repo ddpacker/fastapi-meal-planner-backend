@@ -36,7 +36,7 @@ todos:
       Update PlannedMealCreate to accept a list of PlannedMealCourseCreate
         (role, description). Update PlannedMealRead to include nested PlannedMealCourseRead.
       Update PlannedMealRecipeRead to use MealCourseRole for role.
-    status: pending
+    status: done
     dependencies:
       - meal-plan-crud
 
@@ -50,7 +50,7 @@ todos:
       When description is null for a course, let the AI decide freely based on the meal name.
       Update FakeClient.generate_recipes() and sample_recipes.json fixture to reflect
       the new signature.
-    status: pending
+    status: done
     dependencies:
       - meal-course-role-enum
 
@@ -124,8 +124,8 @@ todos:
 |--------|------|
 | ✅ Done | MealPlanWeek + PlannedMeal CRUD (create, list, get, update) |
 | ✅ Done | POST /generate-recipes trigger wired to recipe_service |
-| ⏳ Pending | MealCourseRole enum + courses column on PlannedMeal + migration |
-| ⏳ Pending | Update generate_recipes() signature + prompt for per-course generation |
+| ✅ Done | MealCourseRole enum + PlannedMealCourse table + migration |
+| ✅ Done | `generate_recipes()` per-course signature + prompt + fixtures |
 | ⏳ Pending | Course edit: add/remove single course recipes without full regeneration |
 | ⏳ Pending | PATCH individual PlannedMeal (status + name) |
 | ⏳ Pending | DELETE /meal-plans/{id} with cascade verification |

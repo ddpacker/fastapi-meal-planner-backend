@@ -1,10 +1,35 @@
-def recipe_generation_prompt(meal_names: list[str]) -> str:
-    names_list = "\n".join(f"- {name}" for name in meal_names)
-    return f"""You are a professional recipe creator. Generate one recipe for each of the following meals:
+from app.models.meal_plan import MealCourseRole
 
-{names_list}
 
-Return exactly {len(meal_names)} recipe(s) in the same order as the input list. You must call the tool submit_recipes with an object whose only payload field is a "recipes" array containing that many recipe objects.
+def recipe_generation_prompt(
+    meals: list[tuple[str, list[tuple[MealCourseRole, str | None]]]],
+) -> str:
+    lines: list[str] = []
+    idx = 0
+    for meal_name, courses in meals:
+        for role, description in courses:
+            idx += 1
+            if description:
+                lines.append(
+                    f"{idx}. Meal \"{meal_name}\" — generate a {role.value} course. "
+                    f"Specific guidance: {description}"
+                )
+            else:
+                lines.append(
+                    f"{idx}. Meal \"{meal_name}\" — generate a {role.value} course. "
+                    "Use the meal name as your only theme hint; choose an appropriate dish freely."
+                )
+    slots_block = "\n".join(lines)
+    n = idx
+    roles = ", ".join(f"`{r.value}`" for r in MealCourseRole)
+    return f"""You are a professional recipe creator. Generate one recipe for each numbered course slot below (in the same order).
+
+Slots:
+{slots_block}
+
+Return exactly {n} recipe(s) in the same order as the slots above. You must call the tool submit_recipes with an object whose only payload field is a "recipes" array containing that many recipe objects.
+
+Each recipe object must include a "role" field matching the slot ({roles}).
 
 Ingredient output rules:
 - Use singular ingredient names and singular unit names (for example: "carrot", "gram", "millilitre").
