@@ -1,7 +1,34 @@
 from datetime import date, datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.models.meal_plan import MealCourseRole
+
+
+class PlannedMealCourseCreate(BaseModel):
+    role: MealCourseRole
+    description: Optional[str] = None
+
+
+class PlannedMealCourseRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    role: MealCourseRole
+    description: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class PlannedMealRecipeRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    planned_meal_id: int
+    planned_meal_course_id: int
+    recipe_id: int
+    role: MealCourseRole
 
 
 class PlannedMealBase(BaseModel):
@@ -11,16 +38,16 @@ class PlannedMealBase(BaseModel):
 
 
 class PlannedMealCreate(PlannedMealBase):
-    pass
+    courses: Optional[List[PlannedMealCourseCreate]] = None
 
 
 class PlannedMealRead(PlannedMealBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
+    courses: List[PlannedMealCourseRead]
 
 
 class MealPlanWeekBase(BaseModel):
@@ -39,11 +66,9 @@ class MealPlanWeekUpdate(BaseModel):
 
 
 class MealPlanWeekRead(MealPlanWeekBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     created_at: datetime
     updated_at: datetime
     planned_meals: List[PlannedMealRead] = Field(default_factory=list)
-
-    class Config:
-        from_attributes = True
-

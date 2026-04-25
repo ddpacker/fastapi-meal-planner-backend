@@ -6,7 +6,13 @@ from fastapi.testclient import TestClient
 from app.core.security import create_access_token
 from app.db.session import get_db
 from app.main import app
-from app.models.meal_plan import MealPlanWeek, PlannedMeal, PlannedMealRecipe
+from app.models.meal_plan import (
+    MealCourseRole,
+    MealPlanWeek,
+    PlannedMeal,
+    PlannedMealCourse,
+    PlannedMealRecipe,
+)
 from app.models.recipe import Recipe, RecipeIngredient
 from app.models.user import User
 
@@ -42,6 +48,11 @@ def plan_with_linked_recipes(db, user: User) -> MealPlanWeek:
     meal = PlannedMeal(meal_plan_week_id=plan.id, day_index=0, meal_name="Dinner")
     db.add(meal)
     db.flush()
+    course = PlannedMealCourse(
+        planned_meal_id=meal.id, role=MealCourseRole.entree, description=None
+    )
+    db.add(course)
+    db.flush()
 
     recipe = Recipe(
         user_id=user.id,
@@ -61,7 +72,14 @@ def plan_with_linked_recipes(db, user: User) -> MealPlanWeek:
             category="produce",
         )
     )
-    db.add(PlannedMealRecipe(planned_meal_id=meal.id, recipe_id=recipe.id, role="entree"))
+    db.add(
+        PlannedMealRecipe(
+            planned_meal_id=meal.id,
+            planned_meal_course_id=course.id,
+            recipe_id=recipe.id,
+            role=MealCourseRole.entree,
+        )
+    )
     db.commit()
     db.refresh(plan)
     return plan

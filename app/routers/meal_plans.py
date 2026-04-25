@@ -1,19 +1,49 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.clients.base import AIClientBase
 from app.clients.factory import get_ai_client
 from app.core.deps import get_current_user
 from app.db.session import get_db
-from app.models.meal_plan import MealPlanWeek, PlannedMeal
+from app.models.meal_plan import MealCourseRole, MealPlanWeek, PlannedMeal, PlannedMealCourse
 from app.models.user import User
-from app.schemas.meal_plans import MealPlanWeekCreate, MealPlanWeekRead, MealPlanWeekUpdate
+from app.schemas.meal_plans import (
+    MealPlanWeekCreate,
+    MealPlanWeekRead,
+    MealPlanWeekUpdate,
+    PlannedMealCourseCreate,
+)
 from app.services import recipe_service
 
 
 router = APIRouter(prefix="/meal-plans", tags=["meal-plans"])
+
+
+def _add_planned_meal_courses(
+    db: Session,
+    meal: PlannedMeal,
+    courses_in: list[PlannedMealCourseCreate] | None,
+) -> None:
+    if not courses_in:
+        db.add(
+            PlannedMealCourse(
+                planned_meal_id=meal.id,
+                role=MealCourseRole.entree,
+                description=None,
+            )
+        )
+        return
+    for row in courses_in:
+        db.add(
+            PlannedMealCourse(
+                planned_meal_id=meal.id,
+                role=row.role,
+                description=row.description,
+            )
+        )
 
 
 @router.post("", response_model=MealPlanWeekRead, status_code=status.HTTP_201_CREATED)
@@ -39,6 +69,8 @@ def create_meal_plan_week(
             status=meal_in.status,
         )
         db.add(meal)
+        db.flush()
+        _add_planned_meal_courses(db, meal, meal_in.courses)
 
     db.commit()
     db.refresh(plan)
@@ -94,8 +126,10 @@ def update_meal_plan(
         plan.title = plan_in.title
 
     if plan_in.planned_meals is not None:
-        # Simple strategy: delete existing meals and recreate from payload.
-        db.query(PlannedMeal).filter(PlannedMeal.meal_plan_week_id == plan.id).delete()
+        for meal in db.execute(
+            select(PlannedMeal).where(PlannedMeal.meal_plan_week_id == plan.id)
+        ).scalars():
+            db.delete(meal)
         db.flush()
         for meal_in in plan_in.planned_meals:
             meal = PlannedMeal(
@@ -105,6 +139,8 @@ def update_meal_plan(
                 status=meal_in.status,
             )
             db.add(meal)
+            db.flush()
+            _add_planned_meal_courses(db, meal, meal_in.courses)
 
     db.commit()
     db.refresh(plan)

@@ -11,24 +11,40 @@ _INGREDIENT_SCHEMA = {
     "required": ["name", "quantity", "unit", "category"],
 }
 
-_RECIPE_SCHEMA = {
+_RECIPE_SCHEMA_CHAT = {
     "type": "object",
     "properties": {
         "title": {"type": "string"},
         "servings": {"type": "integer"},
         "instructions": {"type": "string"},
-        "ingredients": {"type": "array", "items": _INGREDIENT_SCHEMA}
+        "ingredients": {"type": "array", "items": _INGREDIENT_SCHEMA},
     },
     "required": ["title", "servings", "instructions", "ingredients"],
 }
 
+_RECIPE_SCHEMA_GENERATION = {
+    "type": "object",
+    "properties": {
+        "title": {"type": "string"},
+        "role": {
+            "type": "string",
+            "enum": ["starter", "entree", "side", "dessert"],
+            "description": "Course role for this slot; must match the requested slot.",
+        },
+        "servings": {"type": "integer"},
+        "instructions": {"type": "string"},
+        "ingredients": {"type": "array", "items": _INGREDIENT_SCHEMA},
+    },
+    "required": ["title", "role", "servings", "instructions", "ingredients"],
+}
+
 GENERATE_RECIPES_TOOL = {
     "name": "submit_recipes",
-    "description": "Submit the generated recipes. The tool input must be a single object with a property named 'recipes' (array of recipe objects), one per planned meal, in the same order as the user list.",
+    "description": "Submit the generated recipes. The tool input must be a single object with a property named 'recipes' (array of recipe objects), one per meal+course slot, in the same order as the prompt (flattened across meals).",
     "input_schema": {
         "type": "object",
         "properties": {
-            "recipes": {"type": "array", "items": _RECIPE_SCHEMA},
+            "recipes": {"type": "array", "items": _RECIPE_SCHEMA_GENERATION},
         },
         "required": ["recipes"],
     },
@@ -42,7 +58,7 @@ CHAT_MODIFY_TOOL = {
         "properties": {
             "assistant_message": {"type": "string"},
             "revised_recipe": {
-                "anyOf": [_RECIPE_SCHEMA, {"type": "null"}],
+                "anyOf": [_RECIPE_SCHEMA_CHAT, {"type": "null"}],
                 "description": "Revised recipe if structural changes were requested, otherwise null.",
             },
         },

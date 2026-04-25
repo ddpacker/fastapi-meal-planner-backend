@@ -3,6 +3,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
+from app.models.meal_plan import MealCourseRole
+
 
 class RecipeIngredientBase(BaseModel):
     name: str
@@ -30,6 +32,7 @@ class RecipeBase(BaseModel):
 
 class RecipeCreate(RecipeBase):
     ingredients: List[RecipeIngredientCreate]
+    role: Optional[MealCourseRole] = None
 
 
 class RecipeRead(RecipeBase):

@@ -1,9 +1,25 @@
 from datetime import date, datetime
+from enum import Enum
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import Date, DateTime, Enum as SAEnum, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
+
+
+class MealCourseRole(str, Enum):
+    starter = "starter"
+    entree = "entree"
+    side = "side"
+    dessert = "dessert"
+
+
+_meal_course_role_col = SAEnum(
+    MealCourseRole,
+    name="meal_course_role",
+    native_enum=False,
+    values_callable=lambda x: [e.value for e in x],
+)
 
 
 class MealPlanWeek(Base):
@@ -50,23 +66,54 @@ class PlannedMeal(Base):
     )
 
     meal_plan_week = relationship("MealPlanWeek", back_populates="planned_meals")
+    courses = relationship(
+        "PlannedMealCourse", back_populates="planned_meal", cascade="all, delete-orphan"
+    )
     recipes = relationship(
         "PlannedMealRecipe", back_populates="planned_meal", cascade="all, delete-orphan"
     )
 
 
-class PlannedMealRecipe(Base):
-    """Association table linking a planned meal to one or more recipes (entree/side/etc.)."""
+class PlannedMealCourse(Base):
+    __tablename__ = "planned_meal_courses"
 
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    planned_meal_id: Mapped[int] = mapped_column(
+        ForeignKey("planned_meals.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    role: Mapped[MealCourseRole] = mapped_column(_meal_course_role_col, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    planned_meal = relationship("PlannedMeal", back_populates="courses")
+    planned_meal_recipes = relationship(
+        "PlannedMealRecipe",
+        back_populates="planned_meal_course",
+        cascade="all, delete-orphan",
+    )
+
+
+class PlannedMealRecipe(Base):
     __tablename__ = "planned_meal_recipes"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     planned_meal_id: Mapped[int] = mapped_column(
         ForeignKey("planned_meals.id"), index=True, nullable=False
     )
+    planned_meal_course_id: Mapped[int] = mapped_column(
+        ForeignKey("planned_meal_courses.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
     recipe_id: Mapped[int] = mapped_column(ForeignKey("recipes.id"), index=True, nullable=False)
-    role: Mapped[str | None] = mapped_column(String(50), nullable=True)  # e.g., entree, side
+    role: Mapped[MealCourseRole] = mapped_column(_meal_course_role_col, nullable=False)
 
     planned_meal = relationship("PlannedMeal", back_populates="recipes")
+    planned_meal_course = relationship("PlannedMealCourse", back_populates="planned_meal_recipes")
     recipe = relationship("Recipe", back_populates="planned_meal_links")
-

@@ -4,7 +4,13 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.clients.fake import FakeClient
-from app.models.meal_plan import MealPlanWeek, PlannedMeal, PlannedMealRecipe
+from app.models.meal_plan import (
+    MealCourseRole,
+    MealPlanWeek,
+    PlannedMeal,
+    PlannedMealCourse,
+    PlannedMealRecipe,
+)
 from app.models.recipe import Recipe, RecipeIngredient
 from app.models.user import User
 from app.services.recipe_service import generate_recipes_for_plan
@@ -22,17 +28,60 @@ def plan_with_meals(db: Session, user: User) -> MealPlanWeek:
     db.add(plan)
     db.flush()
 
-    db.add_all([
-        PlannedMeal(meal_plan_week_id=plan.id, day_index=0, meal_name="Chicken Tacos"),
-        PlannedMeal(meal_plan_week_id=plan.id, day_index=1, meal_name="Vegetable Stir Fry"),
-    ])
+    m1 = PlannedMeal(meal_plan_week_id=plan.id, day_index=0, meal_name="Chicken Tacos")
+    m2 = PlannedMeal(meal_plan_week_id=plan.id, day_index=1, meal_name="Vegetable Stir Fry")
+    db.add_all([m1, m2])
+    db.flush()
+    db.add_all(
+        [
+            PlannedMealCourse(
+                planned_meal_id=m1.id, role=MealCourseRole.entree, description=None
+            ),
+            PlannedMealCourse(
+                planned_meal_id=m2.id, role=MealCourseRole.entree, description=None
+            ),
+        ]
+    )
+    db.flush()
+    return plan
+
+
+@pytest.fixture()
+def plan_with_multi_course_meal(db: Session, user: User) -> MealPlanWeek:
+    plan = MealPlanWeek(
+        user_id=user.id,
+        start_date=datetime.date(2026, 4, 14),
+        end_date=datetime.date(2026, 4, 20),
+        title="Pork Week",
+    )
+    db.add(plan)
+    db.flush()
+    m = PlannedMeal(meal_plan_week_id=plan.id, day_index=0, meal_name="Pork Night")
+    db.add(m)
+    db.flush()
+    db.add_all(
+        [
+            PlannedMealCourse(
+                planned_meal_id=m.id,
+                role=MealCourseRole.entree,
+                description="Bourbon Apple Marinaded Pork Chop",
+            ),
+            PlannedMealCourse(
+                planned_meal_id=m.id,
+                role=MealCourseRole.side,
+                description=None,
+            ),
+        ]
+    )
     db.flush()
     return plan
 
 
 class TestGenerateRecipesForPlan:
-    def test_fake_client_receives_meal_names(self, db: Session, user: User, plan_with_meals: MealPlanWeek):
-        """FakeClient.generate_recipes is called with the meal names from the plan."""
+    def test_fake_client_receives_meals_with_course_slots(
+        self, db: Session, user: User, plan_with_meals: MealPlanWeek
+    ):
+        """FakeClient.generate_recipes is called with (meal_name, courses) per planned meal."""
         client = FakeClient()
 
         generate_recipes_for_plan(plan_with_meals.id, db, client, user)
@@ -40,7 +89,10 @@ class TestGenerateRecipesForPlan:
         assert len(client.recorded_calls) == 1
         call = client.recorded_calls[0]
         assert call.method == "generate_recipes"
-        assert call.kwargs["meal_names"] == ["Chicken Tacos", "Vegetable Stir Fry"]
+        assert call.kwargs["meals"] == [
+            ("Chicken Tacos", [(MealCourseRole.entree, None)]),
+            ("Vegetable Stir Fry", [(MealCourseRole.entree, None)]),
+        ]
 
     def test_fake_client_returns_recipes_persisted(self, db: Session, user: User, plan_with_meals: MealPlanWeek):
         """Recipes returned by FakeClient are written to the database."""
@@ -87,7 +139,30 @@ class TestGenerateRecipesForPlan:
 
         links = db.query(PlannedMealRecipe).all()
         assert len(links) == 2
-        assert all(link.role == "entree" for link in links)
+        assert all(link.role == MealCourseRole.entree for link in links)
+        assert all(link.planned_meal_course_id is not None for link in links)
+
+    def test_multi_course_meal_generates_one_recipe_per_slot(
+        self, db: Session, user: User, plan_with_multi_course_meal: MealPlanWeek
+    ):
+        client = FakeClient()
+
+        generate_recipes_for_plan(plan_with_multi_course_meal.id, db, client, user)
+
+        assert client.recorded_calls[0].kwargs["meals"] == [
+            (
+                "Pork Night",
+                [
+                    (MealCourseRole.entree, "Bourbon Apple Marinaded Pork Chop"),
+                    (MealCourseRole.side, None),
+                ],
+            ),
+        ]
+        recipes = db.query(Recipe).filter(Recipe.user_id == user.id).all()
+        assert len(recipes) == 2
+        links = db.query(PlannedMealRecipe).all()
+        assert len(links) == 2
+        assert {link.role for link in links} == {MealCourseRole.entree, MealCourseRole.side}
 
     def test_regeneration_replaces_old_recipes(self, db: Session, user: User, plan_with_meals: MealPlanWeek):
         """Calling generate twice replaces the old recipes rather than duplicating them."""

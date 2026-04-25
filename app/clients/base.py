@@ -1,8 +1,13 @@
 from abc import ABC, abstractmethod
+from typing import TypeAlias
 
 from pydantic import BaseModel
 
+from app.models.meal_plan import MealCourseRole
 from app.schemas.recipes import RecipeCreate
+
+MealGenerationCourse: TypeAlias = tuple[MealCourseRole, str | None]
+MealGenerationMeal: TypeAlias = tuple[str, list[MealGenerationCourse]]
 
 
 class ChatModifyResult(BaseModel):
@@ -12,7 +17,7 @@ class ChatModifyResult(BaseModel):
 
 class AIClientBase(ABC):
     @abstractmethod
-    def generate_recipes(self, meal_names: list[str]) -> list[RecipeCreate]: ...
+    def generate_recipes(self, meals: list[MealGenerationMeal]) -> list[RecipeCreate]: ...
 
     @abstractmethod
     def chat_modify(

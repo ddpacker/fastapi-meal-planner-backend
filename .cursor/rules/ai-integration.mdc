@@ -18,18 +18,17 @@ from abc import ABC, abstractmethod
 from app.schemas.recipes import RecipeCreate
 from app.models.meal_plan import MealCourseRole  # starter|entree|side|dessert
 
+MealGenerationCourse = tuple[MealCourseRole, str | None]  # role, optional description hint
+MealGenerationMeal = tuple[str, list[MealGenerationCourse]]  # meal_name, course slots
+
 class ChatModifyResult:
     assistant_message: str
     revised_recipe: RecipeCreate | None  # None if no structural change
 
 class AIClientBase(ABC):
     @abstractmethod
-    def generate_recipes(
-        self,
-        meals: list[tuple[str, list[MealCourseRole]]],  # (meal_name, courses)
-    ) -> list[RecipeCreate]: ...
-    # Returns one RecipeCreate per (meal, course) pair, each labelled with its role.
-    # Pending migration from list[str] — see ai-connector.plan.md / generate-recipes-course-signature.
+    def generate_recipes(self, meals: list[MealGenerationMeal]) -> list[RecipeCreate]: ...
+    # Returns one RecipeCreate per course slot in meal order (courses sorted by id per meal).
 
     @abstractmethod
     def chat_modify(
@@ -59,8 +58,8 @@ class AIClientBase(ABC):
 ## Prompt templates (`app/utils/prompt_templates.py`)
 
 - All prompt strings live here — nowhere else in the codebase.
-- `recipe_generation_prompt(meals: list[tuple[str, list[MealCourseRole]]]) -> str`
-  - Instruct the model to return a JSON array; each element: `title`, `servings`, `instructions` (str), `ingredients` (list of `{name, quantity, unit, category}`), `role` (MealCourseRole).
+- `recipe_generation_prompt(meals: list[tuple[str, list[tuple[MealCourseRole, str | None]]]]) -> str`
+  - Instruct the model to return one recipe per flattened course slot; each element: `title`, `role` (MealCourseRole), `servings`, `instructions` (str), `ingredients` (list of `{name, quantity, unit, category}`).
   - **Ingredient names and units must be singular** (e.g. "carrot" not "carrots", "cup" not "cups") — required for clean USDA FoodData Central lookups.
   - **All quantities must be in metric units** (gram, ml, litre, etc.) — never imperial. The frontend handles unit display conversion based on user preferences.
 - `chat_modify_prompt(recipe_json: str, history: list[dict], user_message: str) -> str`

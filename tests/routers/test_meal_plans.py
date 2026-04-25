@@ -9,7 +9,12 @@ from app.clients.fake import FakeClient
 from app.core.security import create_access_token
 from app.db.session import get_db
 from app.main import app
-from app.models.meal_plan import MealPlanWeek, PlannedMeal
+from app.models.meal_plan import (
+    MealCourseRole,
+    MealPlanWeek,
+    PlannedMeal,
+    PlannedMealCourse,
+)
 from app.models.user import User
 
 
@@ -46,10 +51,18 @@ def plan_with_meals(db: Session, user: User) -> MealPlanWeek:
     )
     db.add(plan)
     db.flush()
+    m1 = PlannedMeal(meal_plan_week_id=plan.id, day_index=0, meal_name="Tacos")
+    m2 = PlannedMeal(meal_plan_week_id=plan.id, day_index=1, meal_name="Stir Fry")
+    db.add_all([m1, m2])
+    db.flush()
     db.add_all(
         [
-            PlannedMeal(meal_plan_week_id=plan.id, day_index=0, meal_name="Tacos"),
-            PlannedMeal(meal_plan_week_id=plan.id, day_index=1, meal_name="Stir Fry"),
+            PlannedMealCourse(
+                planned_meal_id=m1.id, role=MealCourseRole.entree, description=None
+            ),
+            PlannedMealCourse(
+                planned_meal_id=m2.id, role=MealCourseRole.entree, description=None
+            ),
         ]
     )
     db.commit()
@@ -74,10 +87,74 @@ def test_post_generate_recipes_returns_plan_and_invokes_fake_client(
     assert len(data["planned_meals"]) == 2
     assert {m["meal_name"] for m in data["planned_meals"]} == {"Tacos", "Stir Fry"}
     assert all(m["status"] == "planned" for m in data["planned_meals"])
+    for m in data["planned_meals"]:
+        assert len(m["courses"]) == 1
+        assert m["courses"][0]["role"] == "entree"
+        assert m["courses"][0]["description"] is None
 
     assert len(fake_ai.recorded_calls) == 1
     assert fake_ai.recorded_calls[0].method == "generate_recipes"
-    assert fake_ai.recorded_calls[0].kwargs["meal_names"] == ["Tacos", "Stir Fry"]
+    assert fake_ai.recorded_calls[0].kwargs["meals"] == [
+        ("Tacos", [(MealCourseRole.entree, None)]),
+        ("Stir Fry", [(MealCourseRole.entree, None)]),
+    ]
+
+
+def test_post_meal_plan_creates_default_entree_course(
+    client: TestClient,
+    auth_headers: dict[str, str],
+) -> None:
+    response = client.post(
+        "/meal-plans",
+        headers=auth_headers,
+        json={
+            "start_date": "2026-04-14",
+            "end_date": "2026-04-20",
+            "title": "New Week",
+            "planned_meals": [
+                {"day_index": 0, "meal_name": "Pasta Night", "status": "draft"},
+            ],
+        },
+    )
+    assert response.status_code == 201
+    meals = response.json()["planned_meals"]
+    assert len(meals) == 1
+    assert len(meals[0]["courses"]) == 1
+    assert meals[0]["courses"][0]["role"] == "entree"
+    assert meals[0]["courses"][0]["description"] is None
+
+
+def test_post_meal_plan_accepts_explicit_courses(
+    client: TestClient,
+    auth_headers: dict[str, str],
+) -> None:
+    response = client.post(
+        "/meal-plans",
+        headers=auth_headers,
+        json={
+            "start_date": "2026-04-14",
+            "end_date": "2026-04-20",
+            "title": "Multi",
+            "planned_meals": [
+                {
+                    "day_index": 0,
+                    "meal_name": "Pork Night",
+                    "status": "draft",
+                    "courses": [
+                        {"role": "entree", "description": "Bourbon Apple Marinaded Pork Chop"},
+                        {"role": "side", "description": None},
+                    ],
+                },
+            ],
+        },
+    )
+    assert response.status_code == 201
+    courses = response.json()["planned_meals"][0]["courses"]
+    assert len(courses) == 2
+    roles = {c["role"] for c in courses}
+    assert roles == {"entree", "side"}
+    entree = next(c for c in courses if c["role"] == "entree")
+    assert entree["description"] == "Bourbon Apple Marinaded Pork Chop"
 
 
 def test_post_generate_recipes_requires_auth(

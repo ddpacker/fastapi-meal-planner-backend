@@ -4,7 +4,13 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.models.meal_plan import MealPlanWeek, PlannedMeal, PlannedMealRecipe
+from app.models.meal_plan import (
+    MealCourseRole,
+    MealPlanWeek,
+    PlannedMeal,
+    PlannedMealCourse,
+    PlannedMealRecipe,
+)
 from app.models.recipe import Recipe, RecipeIngredient
 from app.models.user import User
 from app.services.grocery_service import generate_grocery_list
@@ -24,6 +30,14 @@ def plan_with_recipes(db: Session, user: User) -> MealPlanWeek:
     m1 = PlannedMeal(meal_plan_week_id=plan.id, day_index=0, meal_name="Dinner A")
     m2 = PlannedMeal(meal_plan_week_id=plan.id, day_index=1, meal_name="Dinner B")
     db.add_all([m1, m2])
+    db.flush()
+    c1 = PlannedMealCourse(
+        planned_meal_id=m1.id, role=MealCourseRole.entree, description=None
+    )
+    c2 = PlannedMealCourse(
+        planned_meal_id=m2.id, role=MealCourseRole.entree, description=None
+    )
+    db.add_all([c1, c2])
     db.flush()
 
     r1 = Recipe(
@@ -70,8 +84,18 @@ def plan_with_recipes(db: Session, user: User) -> MealPlanWeek:
     )
     db.add_all(
         [
-            PlannedMealRecipe(planned_meal_id=m1.id, recipe_id=r1.id, role="entree"),
-            PlannedMealRecipe(planned_meal_id=m2.id, recipe_id=r2.id, role="entree"),
+            PlannedMealRecipe(
+                planned_meal_id=m1.id,
+                planned_meal_course_id=c1.id,
+                recipe_id=r1.id,
+                role=MealCourseRole.entree,
+            ),
+            PlannedMealRecipe(
+                planned_meal_id=m2.id,
+                planned_meal_course_id=c2.id,
+                recipe_id=r2.id,
+                role=MealCourseRole.entree,
+            ),
         ]
     )
     db.commit()
@@ -137,7 +161,19 @@ class TestGenerateGroceryList:
         )
         db.add(recipe)
         db.flush()
-        db.add(PlannedMealRecipe(planned_meal_id=meal.id, recipe_id=recipe.id, role="entree"))
+        course = PlannedMealCourse(
+            planned_meal_id=meal.id, role=MealCourseRole.entree, description=None
+        )
+        db.add(course)
+        db.flush()
+        db.add(
+            PlannedMealRecipe(
+                planned_meal_id=meal.id,
+                planned_meal_course_id=course.id,
+                recipe_id=recipe.id,
+                role=MealCourseRole.entree,
+            )
+        )
         db.commit()
 
         with pytest.raises(HTTPException) as exc:
