@@ -8,9 +8,9 @@ from app.main import app
 
 @pytest.fixture()
 def client_no_google(monkeypatch):
-    monkeypatch.delenv("GOOGLE_CLIENT_ID", raising=False)
-    monkeypatch.delenv("GOOGLE_CLIENT_SECRET", raising=False)
-    monkeypatch.delenv("GOOGLE_REDIRECT_URI", raising=False)
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "")
+    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "")
+    monkeypatch.setenv("GOOGLE_REDIRECT_URI", "")
     get_settings.cache_clear()
     with TestClient(app) as tc:
         yield tc
