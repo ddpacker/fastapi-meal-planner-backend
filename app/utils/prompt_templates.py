@@ -4,7 +4,7 @@ def recipe_generation_prompt(meal_names: list[str]) -> str:
 
 {names_list}
 
-Return exactly {len(meal_names)} recipe(s) in the same order as the input list."""
+Return exactly {len(meal_names)} recipe(s) in the same order as the input list. You must call the tool submit_recipes with an object whose only payload field is a "recipes" array containing that many recipe objects."""
 
 
 def chat_modify_prompt(recipe_json: str, history: list[dict], user_message: str) -> str:
