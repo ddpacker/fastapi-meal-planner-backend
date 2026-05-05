@@ -2,7 +2,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.clients.base import AIClientBase
 from app.clients.factory import get_ai_client
@@ -15,6 +15,8 @@ from app.schemas.meal_plans import (
     MealPlanWeekRead,
     MealPlanWeekUpdate,
     PlannedMealCourseCreate,
+    PlannedMealRead,
+    PlannedMealUpdate,
 )
 from app.services import recipe_service
 
@@ -155,4 +157,50 @@ def generate_recipes_for_plan(
     ai_client: AIClientBase = Depends(get_ai_client),
 ) -> MealPlanWeek:
     return recipe_service.generate_recipes_for_plan(plan_id, db, ai_client, current_user)
+
+
+@router.patch("/{plan_id}/meals/{meal_id}", response_model=PlannedMealRead)
+def patch_planned_meal(
+    plan_id: int,
+    meal_id: int,
+    body: PlannedMealUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    ai_client: AIClientBase = Depends(get_ai_client),
+) -> PlannedMeal:
+    stmt = (
+        select(PlannedMeal)
+        .join(MealPlanWeek)
+        .where(
+            PlannedMeal.id == meal_id,
+            PlannedMeal.meal_plan_week_id == plan_id,
+            MealPlanWeek.user_id == current_user.id,
+        )
+        .options(selectinload(PlannedMeal.courses))
+    )
+    meal = db.execute(stmt).scalar_one_or_none()
+    if meal is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meal not found")
+
+    if body.meal_name is None and body.status is None and body.courses is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="No fields to update",
+        )
+
+    if body.meal_name is not None:
+        meal.meal_name = body.meal_name
+    if body.status is not None:
+        meal.status = body.status
+
+    if body.courses is not None:
+        recipe_service.sync_planned_meal_courses(db, ai_client, current_user, meal, body.courses)
+
+    db.commit()
+    meal = db.execute(
+        select(PlannedMeal)
+        .where(PlannedMeal.id == meal_id)
+        .options(selectinload(PlannedMeal.courses))
+    ).scalar_one()
+    return meal
 

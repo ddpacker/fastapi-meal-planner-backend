@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -7,6 +7,12 @@ from app.models.meal_plan import MealCourseRole
 
 
 class PlannedMealCourseCreate(BaseModel):
+    role: MealCourseRole
+    description: Optional[str] = None
+
+
+class PlannedMealCourseUpsert(BaseModel):
+    id: Optional[int] = None
     role: MealCourseRole
     description: Optional[str] = None
 
@@ -48,6 +54,12 @@ class PlannedMealRead(PlannedMealBase):
     created_at: datetime
     updated_at: datetime
     courses: List[PlannedMealCourseRead]
+
+
+class PlannedMealUpdate(BaseModel):
+    meal_name: Optional[str] = None
+    status: Optional[Literal["draft", "planned"]] = None
+    courses: Optional[List[PlannedMealCourseUpsert]] = None
 
 
 class MealPlanWeekBase(BaseModel):

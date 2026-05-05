@@ -2,6 +2,7 @@ import datetime
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.clients.factory import get_ai_client
@@ -15,6 +16,7 @@ from app.models.meal_plan import (
     PlannedMeal,
     PlannedMealCourse,
 )
+from app.models.recipe import Recipe
 from app.models.user import User
 
 
@@ -63,6 +65,30 @@ def plan_with_meals(db: Session, user: User) -> MealPlanWeek:
             PlannedMealCourse(
                 planned_meal_id=m2.id, role=MealCourseRole.entree, description=None
             ),
+        ]
+    )
+    db.commit()
+    db.refresh(plan)
+    return plan
+
+
+@pytest.fixture()
+def plan_two_courses_one_meal(db: Session, user: User) -> MealPlanWeek:
+    plan = MealPlanWeek(
+        user_id=user.id,
+        start_date=datetime.date(2026, 4, 14),
+        end_date=datetime.date(2026, 4, 20),
+        title="Two Course Week",
+    )
+    db.add(plan)
+    db.flush()
+    m = PlannedMeal(meal_plan_week_id=plan.id, day_index=0, meal_name="Feast")
+    db.add(m)
+    db.flush()
+    db.add_all(
+        [
+            PlannedMealCourse(planned_meal_id=m.id, role=MealCourseRole.entree, description=None),
+            PlannedMealCourse(planned_meal_id=m.id, role=MealCourseRole.side, description=None),
         ]
     )
     db.commit()
@@ -171,3 +197,216 @@ def test_post_generate_recipes_unknown_plan_returns_404(
 ) -> None:
     response = client.post("/meal-plans/99999/generate-recipes", headers=auth_headers)
     assert response.status_code == 404
+
+
+def test_patch_planned_meal_name_and_status_without_ai(
+    client: TestClient,
+    fake_ai: FakeClient,
+    auth_headers: dict[str, str],
+    plan_with_meals: MealPlanWeek,
+    db: Session,
+) -> None:
+    meal = db.execute(
+        select(PlannedMeal).where(
+            PlannedMeal.meal_plan_week_id == plan_with_meals.id,
+            PlannedMeal.day_index == 0,
+        )
+    ).scalar_one()
+    response = client.patch(
+        f"/meal-plans/{plan_with_meals.id}/meals/{meal.id}",
+        headers=auth_headers,
+        json={"meal_name": "Taco Tuesday", "status": "planned"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["meal_name"] == "Taco Tuesday"
+    assert data["status"] == "planned"
+    assert fake_ai.recorded_calls == []
+
+
+def test_patch_planned_meal_not_found_wrong_plan(
+    client: TestClient,
+    auth_headers: dict[str, str],
+    plan_with_meals: MealPlanWeek,
+    db: Session,
+) -> None:
+    meal = db.execute(
+        select(PlannedMeal).where(
+            PlannedMeal.meal_plan_week_id == plan_with_meals.id,
+            PlannedMeal.day_index == 0,
+        )
+    ).scalar_one()
+    response = client.patch(
+        f"/meal-plans/99999/meals/{meal.id}",
+        headers=auth_headers,
+        json={"meal_name": "Nope"},
+    )
+    assert response.status_code == 404
+
+
+def test_patch_add_course_generates_only_new_slot(
+    client: TestClient,
+    fake_ai: FakeClient,
+    auth_headers: dict[str, str],
+    plan_with_meals: MealPlanWeek,
+    db: Session,
+) -> None:
+    client.post(
+        f"/meal-plans/{plan_with_meals.id}/generate-recipes",
+        headers=auth_headers,
+    )
+    fake_ai.recorded_calls.clear()
+
+    meal = db.execute(
+        select(PlannedMeal).where(
+            PlannedMeal.meal_plan_week_id == plan_with_meals.id,
+            PlannedMeal.day_index == 0,
+        )
+    ).scalar_one()
+    entree = db.execute(
+        select(PlannedMealCourse).where(
+            PlannedMealCourse.planned_meal_id == meal.id,
+            PlannedMealCourse.role == MealCourseRole.entree,
+        )
+    ).scalar_one()
+
+    response = client.patch(
+        f"/meal-plans/{plan_with_meals.id}/meals/{meal.id}",
+        headers=auth_headers,
+        json={
+            "courses": [
+                {"id": entree.id, "role": "entree", "description": None},
+                {"role": "side", "description": "Green salad"},
+            ],
+        },
+    )
+    assert response.status_code == 200
+    assert len(response.json()["courses"]) == 2
+
+    gen_calls = [c for c in fake_ai.recorded_calls if c.method == "generate_recipes"]
+    assert len(gen_calls) == 1
+    assert gen_calls[0].kwargs["meals"] == [
+        ("Tacos", [(MealCourseRole.side, "Green salad")]),
+    ]
+
+
+def test_patch_remove_course_deletes_orphan_recipe(
+    client: TestClient,
+    auth_headers: dict[str, str],
+    plan_two_courses_one_meal: MealPlanWeek,
+    db: Session,
+) -> None:
+    plan = plan_two_courses_one_meal
+    client.post(f"/meal-plans/{plan.id}/generate-recipes", headers=auth_headers)
+    assert db.execute(select(func.count()).select_from(Recipe)).scalar_one() == 2
+
+    meal = db.execute(
+        select(PlannedMeal).where(PlannedMeal.meal_plan_week_id == plan.id)
+    ).scalar_one()
+    courses = (
+        db.execute(
+            select(PlannedMealCourse)
+            .where(PlannedMealCourse.planned_meal_id == meal.id)
+            .order_by(PlannedMealCourse.id)
+        )
+        .scalars()
+        .all()
+    )
+    entree, side = courses[0], courses[1]
+    removed_course_id = side.id
+
+    response = client.patch(
+        f"/meal-plans/{plan.id}/meals/{meal.id}",
+        headers=auth_headers,
+        json={
+            "courses": [{"id": entree.id, "role": "entree", "description": None}],
+        },
+    )
+    assert response.status_code == 200
+    assert len(response.json()["courses"]) == 1
+    assert db.execute(select(func.count()).select_from(Recipe)).scalar_one() == 1
+    assert db.get(PlannedMealCourse, removed_course_id) is None
+
+
+def test_patch_course_description_regenerates_single_slot(
+    client: TestClient,
+    fake_ai: FakeClient,
+    auth_headers: dict[str, str],
+    plan_with_meals: MealPlanWeek,
+    db: Session,
+) -> None:
+    client.post(
+        f"/meal-plans/{plan_with_meals.id}/generate-recipes",
+        headers=auth_headers,
+    )
+    fake_ai.recorded_calls.clear()
+
+    meal = db.execute(
+        select(PlannedMeal).where(
+            PlannedMeal.meal_plan_week_id == plan_with_meals.id,
+            PlannedMeal.day_index == 0,
+        )
+    ).scalar_one()
+    course = db.execute(
+        select(PlannedMealCourse).where(PlannedMealCourse.planned_meal_id == meal.id)
+    ).scalar_one()
+
+    response = client.patch(
+        f"/meal-plans/{plan_with_meals.id}/meals/{meal.id}",
+        headers=auth_headers,
+        json={
+            "courses": [
+                {"id": course.id, "role": "entree", "description": "Chili lime marinade"},
+            ],
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["courses"][0]["description"] == "Chili lime marinade"
+
+    gen_calls = [c for c in fake_ai.recorded_calls if c.method == "generate_recipes"]
+    assert len(gen_calls) == 1
+    assert gen_calls[0].kwargs["meals"] == [
+        ("Tacos", [(MealCourseRole.entree, "Chili lime marinade")]),
+    ]
+
+
+def test_patch_course_role_change_replaces_course_row(
+    client: TestClient,
+    fake_ai: FakeClient,
+    auth_headers: dict[str, str],
+    plan_with_meals: MealPlanWeek,
+    db: Session,
+) -> None:
+    client.post(
+        f"/meal-plans/{plan_with_meals.id}/generate-recipes",
+        headers=auth_headers,
+    )
+    fake_ai.recorded_calls.clear()
+
+    meal = db.execute(
+        select(PlannedMeal).where(
+            PlannedMeal.meal_plan_week_id == plan_with_meals.id,
+            PlannedMeal.day_index == 0,
+        )
+    ).scalar_one()
+    old_course = db.execute(
+        select(PlannedMealCourse).where(PlannedMealCourse.planned_meal_id == meal.id)
+    ).scalar_one()
+    old_id = old_course.id
+
+    response = client.patch(
+        f"/meal-plans/{plan_with_meals.id}/meals/{meal.id}",
+        headers=auth_headers,
+        json={
+            "courses": [{"id": old_course.id, "role": "side", "description": None}],
+        },
+    )
+    assert response.status_code == 200
+    new_id = response.json()["courses"][0]["id"]
+    assert new_id != old_id
+    assert response.json()["courses"][0]["role"] == "side"
+    assert db.get(PlannedMealCourse, old_id) is None
+
+    gen_calls = [c for c in fake_ai.recorded_calls if c.method == "generate_recipes"]
+    assert len(gen_calls) == 1
+    assert gen_calls[0].kwargs["meals"] == [("Tacos", [(MealCourseRole.side, None)])]

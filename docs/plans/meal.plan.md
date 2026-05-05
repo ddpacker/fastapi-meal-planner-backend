@@ -68,7 +68,7 @@ todos:
       - Changed role (remove + add): treat as remove then add in sequence.
       generate_recipe_for_course() is a focused path in recipe_service alongside the existing
       full-plan generation.
-    status: pending
+    status: done
     dependencies:
       - meal-course-generation
       - planned-meal-status
@@ -80,7 +80,7 @@ todos:
       slot or mark it as confirmed after reviewing generated recipes.
       Verify the meal belongs to the plan, and the plan belongs to current_user.
       Return the updated PlannedMealRead.
-    status: pending
+    status: done
     dependencies:
       - meal-plan-crud
 
@@ -126,8 +126,8 @@ todos:
 | ✅ Done | POST /generate-recipes trigger wired to recipe_service |
 | ✅ Done | MealCourseRole enum + PlannedMealCourse table + migration |
 | ✅ Done | `generate_recipes()` per-course signature + prompt + fixtures |
-| ⏳ Pending | Course edit: add/remove single course recipes without full regeneration |
-| ⏳ Pending | PATCH individual PlannedMeal (status + name) |
+| ✅ Done | Course edit: add/remove single course recipes without full regeneration |
+| ✅ Done | PATCH individual PlannedMeal (status + name + courses) |
 | ⏳ Pending | DELETE /meal-plans/{id} with cascade verification |
 | ⏳ Pending | MealPlanWeekRead summary fields (meal_count, has_grocery_list) |
 | ⏳ Pending | Expanded tests for new endpoints |
