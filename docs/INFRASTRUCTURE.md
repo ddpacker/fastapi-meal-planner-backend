@@ -1,3 +1,6 @@
+## ABANDONED: Configuring Azure resources manully for 3+ separate services (API, client, worker) across 2+ environments is becoming too much of a hassle. Opting for Terraform as an IaC solution. I'll keep the docs here for future reference.
+
+
 # Infrastructure Setup
 
 ## Azure Configuration
