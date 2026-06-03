@@ -25,12 +25,20 @@ class Settings(BaseSettings):
     anthropic_model: str = "<ANTHROPIC_MODEL>"
 
     environment: str = "development"
+    frontend_url: str = None
+    cookies_secure: bool = True
+    cookies_samesite: str = "strict"
+    cors_allowed_origins: list[str] = []
 
     google_client_id: Optional[str] = None
     google_client_secret: Optional[str] = None
     google_redirect_uri: Optional[str] = None
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    @property
+    def is_development(self) -> bool:
+        return self.environment == "development"
 
 
 @lru_cache

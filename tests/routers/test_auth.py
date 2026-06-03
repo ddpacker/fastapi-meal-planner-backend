@@ -28,7 +28,7 @@ def test_register_user_success(db: Session) -> None:
     data = response.json()
     assert data["email"] == "new-user@example.com"
     assert isinstance(data["id"], int)
-    assert "created_at" in data
+    assert isinstance(data["access_token"], str)
 
 
 def test_register_duplicate_email_returns_400(db: Session) -> None:
@@ -62,7 +62,7 @@ def test_login_returns_access_token(db: Session) -> None:
     with _make_client(db) as client:
         response = client.post(
             "/auth/login",
-            data={"username": "login@example.com", "password": "valid-password"},
+            json={"email": "login@example.com", "password": "valid-password"},
         )
 
     app.dependency_overrides.clear()
@@ -85,7 +85,7 @@ def test_login_bad_password_returns_401(db: Session) -> None:
     with _make_client(db) as client:
         response = client.post(
             "/auth/login",
-            data={"username": "wrong-pass@example.com", "password": "not-it"},
+            json={"email": "wrong-pass@example.com", "password": "wrong-password"},
         )
 
     app.dependency_overrides.clear()

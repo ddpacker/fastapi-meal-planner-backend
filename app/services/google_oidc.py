@@ -131,7 +131,7 @@ def complete_google_login(db: Session, settings: Settings, code: str) -> User:
     except JWTError as exc:
         raise ValueError("invalid_id_token") from exc
 
-    email = claims.get("email")
+    email = claims.get("email").lower()
     sub = claims.get("sub")
     if not email or not sub or not isinstance(email, str) or not isinstance(sub, str):
         raise ValueError("missing_claims")
