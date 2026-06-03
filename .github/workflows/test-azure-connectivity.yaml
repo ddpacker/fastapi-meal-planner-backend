@@ -2,8 +2,6 @@ name: Test Azure Connectivity
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ "master" ]
 
 permissions:
   id-token: write
