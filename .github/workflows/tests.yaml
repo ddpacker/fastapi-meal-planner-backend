@@ -30,6 +30,9 @@ jobs:
       SECRET_KEY: test-secret-key
       GOOGLE_CLIENT_ID: test-client-id
       GOOGLE_CLIENT_SECRET: test-client-secret
+      FRONTEND_URL: http://localhost:5173
+      COOKIES_SECURE: false
+      COOKIES_SAMESITE: lax
 
     steps:
       - name: Checkout

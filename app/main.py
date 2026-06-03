@@ -2,18 +2,19 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.routers import auth, chat, grocery, meal_plans, recipes
 
 
 logger = logging.getLogger("meal_planner")
+settings = get_settings()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context for startup/shutdown events."""
-    settings = get_settings()
     # Startup
     logger.info("Meal Planner backend starting up", extra={"environment": settings.environment})
     yield
@@ -27,6 +28,14 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    # CORS middleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_allowed_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     # Routers
     app.include_router(auth.router)
     app.include_router(meal_plans.router)
