@@ -1,10 +1,25 @@
+import datetime
+
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.db.session import get_db
 from app.main import app
+from app.models.chat import ChatMessage, ChatSession
+from app.models.grocery import GroceryItem, GroceryList
+from app.models.meal_plan import (
+    MealCourseRole,
+    MealPlanWeek,
+    PlannedMeal,
+    PlannedMealCourse,
+    PlannedMealRecipe,
+)
+from app.models.nutrition import NutritionInfo
+from app.models.recipe import Recipe, RecipeIngredient
 from app.models.user import User
+from app.models.user_preferences import UserPreferences
 
 
 def _make_client(db: Session) -> TestClient:
@@ -228,3 +243,141 @@ def test_preferences_without_token_returns_401(db: Session) -> None:
 
     assert get_response.status_code == 401
     assert patch_response.status_code == 401
+
+
+def test_delete_me_wrong_password_returns_400(db: Session) -> None:
+    user = User(
+        email="delete@example.com",
+        password_hash=get_password_hash("correct-password"),
+    )
+    db.add(user)
+    db.commit()
+
+    with _make_client(db) as client:
+        response = client.request(
+            "DELETE",
+            "/users/me",
+            headers=_auth_headers(user),
+            json={"password": "wrong-password"},
+        )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Incorrect password"
+    assert db.get(User, user.id) is not None
+
+
+def test_delete_me_without_token_returns_401(db: Session) -> None:
+    with _make_client(db) as client:
+        response = client.request(
+            "DELETE",
+            "/users/me",
+            json={"password": "any-password"},
+        )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 401
+
+
+def test_delete_me_cascades_all_related_rows(db: Session) -> None:
+    user = User(
+        email="cascade@example.com",
+        password_hash=get_password_hash("delete-me-password"),
+    )
+    db.add(user)
+    db.flush()
+
+    prefs = UserPreferences(user_id=user.id)
+    plan = MealPlanWeek(
+        user_id=user.id,
+        start_date=datetime.date(2026, 6, 1),
+        end_date=datetime.date(2026, 6, 7),
+        title="Delete Week",
+    )
+    db.add_all([prefs, plan])
+    db.flush()
+
+    meal = PlannedMeal(meal_plan_week_id=plan.id, day_index=0, meal_name="Dinner")
+    db.add(meal)
+    db.flush()
+
+    course = PlannedMealCourse(
+        planned_meal_id=meal.id,
+        role=MealCourseRole.entree,
+        description=None,
+    )
+    recipe = Recipe(
+        user_id=user.id,
+        title="Cascade Recipe",
+        instructions="Cook it",
+        servings=2,
+    )
+    db.add_all([course, recipe])
+    db.flush()
+
+    grocery_list = GroceryList(meal_plan_week_id=plan.id, title="Shop")
+    chat_session = ChatSession(recipe_id=recipe.id, user_id=user.id, title="Chat")
+    db.add_all(
+        [
+            PlannedMealRecipe(
+                planned_meal_id=meal.id,
+                planned_meal_course_id=course.id,
+                recipe_id=recipe.id,
+                role=MealCourseRole.entree,
+            ),
+            RecipeIngredient(
+                recipe_id=recipe.id,
+                name="carrot",
+                quantity=100,
+                unit="gram",
+                category="produce",
+            ),
+            NutritionInfo(recipe_id=recipe.id, calories=250),
+            grocery_list,
+            chat_session,
+        ]
+    )
+    db.flush()
+
+    db.add_all(
+        [
+            GroceryItem(grocery_list_id=grocery_list.id, name="carrot"),
+            ChatMessage(chat_session_id=chat_session.id, role="user", content="hello"),
+        ]
+    )
+    db.commit()
+
+    user_id = user.id
+    tables = [
+        UserPreferences,
+        MealPlanWeek,
+        PlannedMeal,
+        PlannedMealCourse,
+        PlannedMealRecipe,
+        GroceryList,
+        GroceryItem,
+        Recipe,
+        RecipeIngredient,
+        NutritionInfo,
+        ChatSession,
+        ChatMessage,
+    ]
+    for model in tables:
+        assert db.execute(select(func.count()).select_from(model)).scalar() > 0
+
+    with _make_client(db) as client:
+        response = client.request(
+            "DELETE",
+            "/users/me",
+            headers=_auth_headers(user),
+            json={"password": "delete-me-password"},
+        )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 204
+    assert db.get(User, user_id) is None
+    for model in tables:
+        assert db.execute(select(func.count()).select_from(model)).scalar() == 0

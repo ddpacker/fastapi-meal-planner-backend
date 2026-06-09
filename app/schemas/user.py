@@ -15,6 +15,10 @@ class PreferencesUpdate(BaseModel):
     unit_system: Optional[UnitSystem] = None
 
 
+class UserDelete(BaseModel):
+    password: str
+
+
 class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     password: Annotated[Optional[str], Field(min_length=8, max_length=128)] = None

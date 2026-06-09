@@ -37,7 +37,7 @@ todos:
       GroceryList, and NutritionInfo rows. Verify SQLAlchemy cascade config covers all
       relationships. RevokedToken rows for the user's tokens can remain (they expire naturally).
       Return 204. Add a test that confirms all related rows are removed.
-    status: pending
+    status: completed
     dependencies:
       - user-profile-endpoints
 
@@ -50,7 +50,7 @@ todos:
       - GET + PATCH /users/me/preferences: unit_system persists
       - DELETE /users/me: wrong password 400, success + cascade verification
       - All endpoints return 401 without a valid token
-    status: pending
+    status: completed
     dependencies:
       - user-preferences
       - user-delete
@@ -62,8 +62,8 @@ todos:
 |--------|------|
 | ✅ Done | GET /users/me + PATCH /users/me (email, password change) |
 | ✅ Done | User preferences (unit_system: metric/imperial) |
-| ⏳ Pending | DELETE /users/me with cascade verification |
-| ⏳ Pending | Tests |
+| ✅ Done | DELETE /users/me with cascade verification |
+| ✅ Done | Tests |
 
 ---
 
