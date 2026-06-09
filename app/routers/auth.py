@@ -1,8 +1,7 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import RedirectResponse
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.responses import JSONResponse, RedirectResponse
 from itsdangerous import BadSignature, SignatureExpired
 from sqlalchemy.orm import Session
 
@@ -11,7 +10,7 @@ from app.core.deps import get_current_token_payload, get_current_user
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.auth import Token, TokenPayload, UserCreate, UserRead
+from app.schemas.auth import TokenPayload, UserCreate, UserRead
 from app.services.token_revocation import revoke_jti
 from app.services.google_oidc import (
     build_google_authorization_url,
@@ -25,8 +24,37 @@ from app.services.google_oidc import (
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
-def register_user(user_in: UserCreate, db: Session = Depends(get_db)) -> User:
+def _token_response(
+    *,
+    token: str,
+    content: dict,
+    status_code: int = status.HTTP_200_OK,
+) -> JSONResponse:
+    settings = get_settings()
+    if settings.is_development:
+        return JSONResponse(
+            status_code=status_code,
+            content={**content, "access_token": token, "token_type": "bearer"},
+        )
+    response = JSONResponse(status_code=status_code, content=content)
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        secure=settings.cookies_secure,
+        samesite=settings.cookies_samesite,
+    )
+    return response
+
+
+@router.get("/users/me", response_model=UserRead)
+def get_me(current_user: User = Depends(get_current_user)) -> User:
+    return current_user
+
+
+@router.post("/register", status_code=status.HTTP_201_CREATED)
+def register_user(user_in: UserCreate, db: Session = Depends(get_db)) -> JSONResponse:
+    user_in.email = user_in.email.lower()
     existing = db.query(User).filter(User.email == user_in.email).first()
     if existing:
         raise HTTPException(
@@ -37,24 +65,30 @@ def register_user(user_in: UserCreate, db: Session = Depends(get_db)) -> User:
     db.add(user)
     db.commit()
     db.refresh(user)
-    return user
+
+    access_token = create_access_token(subject=str(user.id))
+    return _token_response(
+        token=access_token,
+        content={"id": user.id, "email": user.email},
+        status_code=status.HTTP_201_CREATED,
+    )
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login", status_code=status.HTTP_200_OK)
 def login_for_access_token(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    credentials: UserCreate,
     db: Session = Depends(get_db),
-) -> Token:
-    user = db.query(User).filter(User.email == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.password_hash):
+) -> JSONResponse:
+    credentials.email = credentials.email.lower()
+    user = db.query(User).filter(User.email == credentials.email).first()
+    if not user or not verify_password(credentials.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
         )
 
     access_token = create_access_token(subject=str(user.id))
-    return Token(access_token=access_token)
+    return _token_response(token=access_token, content={"message": "ok"})
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
@@ -89,12 +123,12 @@ def google_login_start() -> RedirectResponse:
     return RedirectResponse(url=url, status_code=status.HTTP_302_FOUND)
 
 
-@router.get("/google/callback", response_model=Token)
+@router.get("/google/callback")
 def google_login_callback(
     code: str,
     state: str,
     db: Session = Depends(get_db),
-) -> Token:
+) -> RedirectResponse:
     settings = get_settings()
     if not google_oauth_configured(settings):
         raise HTTPException(
@@ -124,4 +158,18 @@ def google_login_callback(
         ) from None
 
     access_token = create_access_token(subject=str(user.id))
-    return Token(access_token=access_token)
+    redirect_url = f"{settings.frontend_url}/auth/google/callback"
+    if settings.is_development:
+        return RedirectResponse(
+            url=f"{redirect_url}?access_token={access_token}",
+            status_code=status.HTTP_302_FOUND,
+        )
+    response = RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=settings.cookies_secure,
+        samesite=settings.cookies_samesite,
+    )
+    return response

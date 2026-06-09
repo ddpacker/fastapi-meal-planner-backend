@@ -11,6 +11,7 @@ def client_no_google(monkeypatch):
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "")
     monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "")
     monkeypatch.setenv("GOOGLE_REDIRECT_URI", "")
+
     get_settings.cache_clear()
     with TestClient(app) as tc:
         yield tc
@@ -22,6 +23,7 @@ def client_google_configured(monkeypatch):
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "test-client-id")
     monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "test-secret")
     monkeypatch.setenv("GOOGLE_REDIRECT_URI", "http://localhost:8000/auth/google/callback")
+
     get_settings.cache_clear()
     with TestClient(app) as tc:
         yield tc

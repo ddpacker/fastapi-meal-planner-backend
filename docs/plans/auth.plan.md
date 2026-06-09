@@ -65,6 +65,16 @@ todos:
     status: done
     dependencies:
       - setup-jwt
+    
+  - id: cors-middleware
+    content: >
+      Add CORSMiddleware to main.py with allowed origins driven by a
+      CORS_ALLOWED_ORIGINS setting (list[str]) in app/config.py. Defaults to []
+      in production. Local dev overrides to [http://localhost:5173] via .env.
+      Add CORS_ALLOWED_ORIGINS to .env.example.
+    status: done
+    dependencies:
+      - setup-jwt
 ---
 
 ## Roadmap
@@ -80,7 +90,7 @@ todos:
 | ✅ Done | Google OIDC social login + `google_sub` column | `app/routers/auth.py`, `app/services/google_oidc.py`, Alembic `b0dc7aebe1e7` |
 | ✅ Done | Logout with JTI denylist (`revoked_tokens` table) | `app/routers/auth.py`, `app/core/security.py`, `app/core/deps.py`, `app/services/token_revocation.py` |
 | ✅ Done | Dedicated auth tests | `tests/routers/test_auth.py`, `tests/core/test_security.py` |
-
+| ✅ Done | CORS middleware + allowed origins config | `main.py`, `app/config.py` |
 ---
 
 ## Implementation notes

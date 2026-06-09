@@ -1,33 +1,44 @@
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Cookie, Depends, Header, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.core.security import decode_token
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import TokenPayload
 from app.services.token_revocation import is_jti_revoked
 
-http_bearer = HTTPBearer()
-
 
 def get_current_token_payload(
     db: Session = Depends(get_db),
-    credentials: HTTPAuthorizationCredentials = Depends(http_bearer),
+    access_token: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
 ) -> TokenPayload:
-    payload = decode_token(credentials.credentials)
+    settings = get_settings()
+
+    if settings.is_development:
+        token: str | None = None
+        if authorization and authorization.startswith("Bearer "):
+            token = authorization.removeprefix("Bearer ")
+    else:
+        token = access_token
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+        )
+    payload = decode_token(token)
     if payload is None or not payload.sub:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
         )
     if payload.jti and is_jti_revoked(db, payload.jti):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
         )
     return payload
 
@@ -41,7 +52,5 @@ def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
-            headers={"WWW-Authenticate": "Bearer"},
         )
     return user
-
