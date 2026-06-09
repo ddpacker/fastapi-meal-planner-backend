@@ -1,6 +1,18 @@
 from typing import Annotated, Optional
 
-from pydantic import BaseModel, EmailStr, Field, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
+
+from app.models.user_preferences import UnitSystem
+
+
+class PreferencesRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    unit_system: UnitSystem
+
+
+class PreferencesUpdate(BaseModel):
+    unit_system: Optional[UnitSystem] = None
 
 
 class UserUpdate(BaseModel):

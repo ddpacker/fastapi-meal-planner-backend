@@ -25,7 +25,7 @@ todos:
       conversion logic needed.
       Add GET /users/me/preferences and PATCH /users/me/preferences.
       Include unit_system in UserRead or as a nested PreferencesRead.
-    status: pending
+    status: completed
     dependencies:
       - user-profile-endpoints
 
@@ -61,7 +61,7 @@ todos:
 | Status | Task |
 |--------|------|
 | ✅ Done | GET /users/me + PATCH /users/me (email, password change) |
-| ⏳ Pending | User preferences (unit_system: metric/imperial) |
+| ✅ Done | User preferences (unit_system: metric/imperial) |
 | ⏳ Pending | DELETE /users/me with cascade verification |
 | ⏳ Pending | Tests |
 

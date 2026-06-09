@@ -1,7 +1,9 @@
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Optional
 
 from pydantic import BaseModel, EmailStr, Field
+
+from app.schemas.user import PreferencesRead
 
 
 class UserBase(BaseModel):
@@ -15,6 +17,7 @@ class UserCreate(UserBase):
 class UserRead(UserBase):
     id: int
     created_at: datetime
+    preferences: Optional[PreferencesRead] = None
 
     class Config:
         from_attributes = True

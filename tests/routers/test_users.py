@@ -155,3 +155,76 @@ def test_patch_me_without_token_returns_401(db: Session) -> None:
     app.dependency_overrides.clear()
 
     assert response.status_code == 401
+
+
+def test_get_me_includes_default_preferences(db: Session) -> None:
+    user = User(
+        email="prefs@example.com",
+        password_hash=get_password_hash("securepass123"),
+    )
+    db.add(user)
+    db.commit()
+
+    with _make_client(db) as client:
+        response = client.get("/users/me", headers=_auth_headers(user))
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["preferences"]["unit_system"] == "metric"
+
+
+def test_get_preferences_returns_default_metric(db: Session) -> None:
+    user = User(
+        email="getprefs@example.com",
+        password_hash=get_password_hash("securepass123"),
+    )
+    db.add(user)
+    db.commit()
+
+    with _make_client(db) as client:
+        response = client.get("/users/me/preferences", headers=_auth_headers(user))
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json() == {"unit_system": "metric"}
+
+
+def test_patch_preferences_persists_unit_system(db: Session) -> None:
+    user = User(
+        email="patchprefs@example.com",
+        password_hash=get_password_hash("securepass123"),
+    )
+    db.add(user)
+    db.commit()
+
+    with _make_client(db) as client:
+        patch_response = client.patch(
+            "/users/me/preferences",
+            headers=_auth_headers(user),
+            json={"unit_system": "imperial"},
+        )
+        get_response = client.get("/users/me/preferences", headers=_auth_headers(user))
+
+    app.dependency_overrides.clear()
+
+    assert patch_response.status_code == 200
+    assert patch_response.json() == {"unit_system": "imperial"}
+    assert get_response.status_code == 200
+    assert get_response.json() == {"unit_system": "imperial"}
+
+
+def test_preferences_without_token_returns_401(db: Session) -> None:
+    with _make_client(db) as client:
+        get_response = client.get("/users/me/preferences")
+        patch_response = client.patch(
+            "/users/me/preferences",
+            json={"unit_system": "imperial"},
+        )
+
+    app.dependency_overrides.clear()
+
+    assert get_response.status_code == 401
+    assert patch_response.status_code == 401
