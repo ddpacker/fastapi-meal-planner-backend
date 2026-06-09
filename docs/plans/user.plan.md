@@ -13,7 +13,7 @@ todos:
       current_password for verification before accepting a new one).
       Email change must check uniqueness before updating.
       Return updated UserRead on success.
-    status: pending
+    status: completed
 
   - id: user-preferences
     content: >
@@ -60,7 +60,7 @@ todos:
 
 | Status | Task |
 |--------|------|
-| ⏳ Pending | GET /users/me + PATCH /users/me (email, password change) |
+| ✅ Done | GET /users/me + PATCH /users/me (email, password change) |
 | ⏳ Pending | User preferences (unit_system: metric/imperial) |
 | ⏳ Pending | DELETE /users/me with cascade verification |
 | ⏳ Pending | Tests |

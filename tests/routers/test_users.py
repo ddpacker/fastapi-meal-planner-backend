@@ -1,0 +1,157 @@
+from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
+
+from app.core.security import create_access_token, get_password_hash, verify_password
+from app.db.session import get_db
+from app.main import app
+from app.models.user import User
+
+
+def _make_client(db: Session) -> TestClient:
+    def override_db():
+        yield db
+
+    app.dependency_overrides[get_db] = override_db
+    return TestClient(app)
+
+
+def _auth_headers(user: User) -> dict[str, str]:
+    token = create_access_token(subject=str(user.id))
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_get_me_returns_user_read(db: Session) -> None:
+    user = User(
+        email="profile@example.com",
+        password_hash=get_password_hash("securepass123"),
+    )
+    db.add(user)
+    db.commit()
+
+    with _make_client(db) as client:
+        response = client.get("/users/me", headers=_auth_headers(user))
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == user.id
+    assert data["email"] == "profile@example.com"
+    assert "created_at" in data
+    assert "password_hash" not in data
+
+
+def test_get_me_without_token_returns_401(db: Session) -> None:
+    with _make_client(db) as client:
+        response = client.get("/users/me")
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 401
+
+
+def test_patch_me_email_success(db: Session) -> None:
+    user = User(
+        email="old@example.com",
+        password_hash=get_password_hash("securepass123"),
+    )
+    db.add(user)
+    db.commit()
+
+    with _make_client(db) as client:
+        response = client.patch(
+            "/users/me",
+            headers=_auth_headers(user),
+            json={"email": "new@example.com"},
+        )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["email"] == "new@example.com"
+    db.refresh(user)
+    assert user.email == "new@example.com"
+
+
+def test_patch_me_duplicate_email_returns_400(db: Session) -> None:
+    existing = User(
+        email="taken@example.com",
+        password_hash=get_password_hash("otherpass123"),
+    )
+    user = User(
+        email="mine@example.com",
+        password_hash=get_password_hash("securepass123"),
+    )
+    db.add_all([existing, user])
+    db.commit()
+
+    with _make_client(db) as client:
+        response = client.patch(
+            "/users/me",
+            headers=_auth_headers(user),
+            json={"email": "taken@example.com"},
+        )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Email already registered"
+
+
+def test_patch_me_wrong_current_password_returns_400(db: Session) -> None:
+    user = User(
+        email="pass@example.com",
+        password_hash=get_password_hash("correct-password"),
+    )
+    db.add(user)
+    db.commit()
+
+    with _make_client(db) as client:
+        response = client.patch(
+            "/users/me",
+            headers=_auth_headers(user),
+            json={
+                "password": "newpassword123",
+                "current_password": "wrong-password",
+            },
+        )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Incorrect current password"
+
+
+def test_patch_me_password_success(db: Session) -> None:
+    user = User(
+        email="changepass@example.com",
+        password_hash=get_password_hash("old-password"),
+    )
+    db.add(user)
+    db.commit()
+
+    with _make_client(db) as client:
+        response = client.patch(
+            "/users/me",
+            headers=_auth_headers(user),
+            json={
+                "password": "newpassword123",
+                "current_password": "old-password",
+            },
+        )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    db.refresh(user)
+    assert verify_password("newpassword123", user.password_hash)
+
+
+def test_patch_me_without_token_returns_401(db: Session) -> None:
+    with _make_client(db) as client:
+        response = client.patch("/users/me", json={"email": "new@example.com"})
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 401
