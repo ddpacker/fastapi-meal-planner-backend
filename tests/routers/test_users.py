@@ -77,7 +77,7 @@ def test_patch_me_email_success(db: Session) -> None:
         response = client.patch(
             "/users/me",
             headers=_auth_headers(user),
-            json={"email": "new@example.com"},
+            json={"email": "new@example.com", "current_password": "securepass123"},
         )
 
     app.dependency_overrides.clear()
@@ -87,6 +87,51 @@ def test_patch_me_email_success(db: Session) -> None:
     assert data["email"] == "new@example.com"
     db.refresh(user)
     assert user.email == "new@example.com"
+
+
+def test_patch_me_email_without_current_password_returns_422(db: Session) -> None:
+    user = User(
+        email="no-pass@example.com",
+        password_hash=get_password_hash("securepass123"),
+    )
+    db.add(user)
+    db.commit()
+
+    with _make_client(db) as client:
+        response = client.patch(
+            "/users/me",
+            headers=_auth_headers(user),
+            json={"email": "new@example.com"},
+        )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 422
+    db.refresh(user)
+    assert user.email == "no-pass@example.com"
+
+
+def test_patch_me_email_wrong_current_password_returns_400(db: Session) -> None:
+    user = User(
+        email="email-pass@example.com",
+        password_hash=get_password_hash("correct-password"),
+    )
+    db.add(user)
+    db.commit()
+
+    with _make_client(db) as client:
+        response = client.patch(
+            "/users/me",
+            headers=_auth_headers(user),
+            json={"email": "new@example.com", "current_password": "wrong-password"},
+        )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Incorrect current password"
+    db.refresh(user)
+    assert user.email == "email-pass@example.com"
 
 
 def test_patch_me_duplicate_email_returns_400(db: Session) -> None:
@@ -105,7 +150,7 @@ def test_patch_me_duplicate_email_returns_400(db: Session) -> None:
         response = client.patch(
             "/users/me",
             headers=_auth_headers(user),
-            json={"email": "taken@example.com"},
+            json={"email": "taken@example.com", "current_password": "securepass123"},
         )
 
     app.dependency_overrides.clear()

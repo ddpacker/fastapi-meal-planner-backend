@@ -72,7 +72,7 @@ todos:
 ### UserUpdate schema
 All fields optional: email (validate format + uniqueness), password (requires current_password).
 Never accept password_hash directly. Validate current_password via verify_password() before
-allowing a password change.
+allowing an email or password change.
 
 ### Unit system convention
 The AI generation prompt (recipe_generation_prompt) must instruct the model to return all
