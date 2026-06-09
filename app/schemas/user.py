@@ -25,7 +25,9 @@ class UserUpdate(BaseModel):
     current_password: Optional[str] = None
 
     @model_validator(mode="after")
-    def password_requires_current_password(self) -> "UserUpdate":
+    def sensitive_changes_require_current_password(self) -> "UserUpdate":
+        if self.email is not None and self.current_password is None:
+            raise ValueError("current_password is required when changing email")
         if self.password is not None and self.current_password is None:
             raise ValueError("current_password is required when changing password")
         return self

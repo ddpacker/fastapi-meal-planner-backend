@@ -11,7 +11,17 @@ from app.schemas.user import PreferencesUpdate, UserUpdate
 def update_user(db: Session, user: User, user_in: UserUpdate) -> User:
     updates = user_in.model_dump(exclude_unset=True, exclude={"current_password"})
 
-    if "email" in updates and updates["email"] != user.email:
+    email_changing = "email" in updates and updates["email"] != user.email
+    password_changing = "password" in updates
+
+    if email_changing or password_changing:
+        if not verify_password(user_in.current_password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Incorrect current password",
+            )
+
+    if email_changing:
         existing = db.execute(select(User).where(User.email == updates["email"])).scalar_one_or_none()
         if existing:
             raise HTTPException(
@@ -20,12 +30,7 @@ def update_user(db: Session, user: User, user_in: UserUpdate) -> User:
             )
         user.email = updates["email"]
 
-    if "password" in updates:
-        if not verify_password(user_in.current_password, user.password_hash):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Incorrect current password",
-            )
+    if password_changing:
         user.password_hash = get_password_hash(updates["password"])
 
     db.commit()
