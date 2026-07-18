@@ -5,7 +5,7 @@ from app.core.deps import get_current_user
 from app.db.session import get_db
 from app.models.meal_plan import PlannedMeal, PlannedMealRecipe
 from app.models.nutrition import NutritionInfo
-from app.models.recipe import Recipe, RecipeIngredient
+from app.models.recipe import Recipe, RecipeIngredient, RecipeStep
 from app.models.user import User
 from app.schemas.nutrition import NutritionInfoCreate, NutritionInfoRead
 from app.schemas.recipes import RecipeCreate, RecipeRead
@@ -23,11 +23,19 @@ def create_recipe(
     recipe = Recipe(
         user_id=current_user.id,
         title=recipe_in.title,
-        instructions=recipe_in.instructions,
         servings=recipe_in.servings,
     )
     db.add(recipe)
     db.flush()
+
+    for step_in in recipe_in.steps:
+        db.add(
+            RecipeStep(
+                recipe_id=recipe.id,
+                step_number=step_in.step_number,
+                text=step_in.text,
+            )
+        )
 
     for ingr_in in recipe_in.ingredients:
         ingredient = RecipeIngredient(

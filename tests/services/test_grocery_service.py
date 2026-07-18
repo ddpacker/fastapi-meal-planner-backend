@@ -43,14 +43,12 @@ def plan_with_recipes(db: Session, user: User) -> MealPlanWeek:
     r1 = Recipe(
         user_id=user.id,
         title="R1",
-        instructions="i",
         servings=2,
         source_model="test",
     )
     r2 = Recipe(
         user_id=user.id,
         title="R2",
-        instructions="i",
         servings=2,
         source_model="test",
     )
@@ -155,7 +153,6 @@ class TestGenerateGroceryList:
         recipe = Recipe(
             user_id=user.id,
             title="Empty",
-            instructions="x",
             servings=1,
             source_model="test",
         )

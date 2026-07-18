@@ -51,6 +51,7 @@ PlannedMeal ↔ Recipe via PlannedMealRecipe  (many:many; role = entree|side|etc
 PlannedMeal  → PlannedMealRecipe  (1:many, cascade delete)
 Recipe       → PlannedMealRecipe  (1:many, cascade delete)
 
+Recipe → RecipeStep        (1:many, cascade delete)
 Recipe → RecipeIngredient   (1:many, cascade delete)
 Recipe → NutritionInfo      (1:1, uselist=False, cascade delete)
 Recipe → ChatSession        (1:many, cascade delete)

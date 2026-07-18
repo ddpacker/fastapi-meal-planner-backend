@@ -356,7 +356,6 @@ def test_delete_me_cascades_all_related_rows(db: Session) -> None:
     recipe = Recipe(
         user_id=user.id,
         title="Cascade Recipe",
-        instructions="Cook it",
         servings=2,
     )
     db.add_all([course, recipe])

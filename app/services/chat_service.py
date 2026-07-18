@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.clients.base import AIClientBase
 from app.models.chat import ChatMessage, ChatSession
-from app.models.recipe import Recipe, RecipeIngredient
+from app.models.recipe import Recipe, RecipeIngredient, RecipeStep
 from app.models.user import User
 from app.schemas.recipes import RecipeCreate, RecipeRead
 
@@ -22,6 +22,7 @@ def send_message(
         select(ChatSession)
         .where(ChatSession.id == session_id, ChatSession.user_id == user.id)
         .options(
+            selectinload(ChatSession.recipe).selectinload(Recipe.steps),
             selectinload(ChatSession.recipe).selectinload(Recipe.ingredients),
             selectinload(ChatSession.recipe).selectinload(Recipe.nutrition_info),
         )
@@ -72,19 +73,29 @@ def send_message(
 
 
 def _recipe_to_json(recipe: Recipe) -> str:
-    """Serialize recipe for the model — title, instructions, servings, ingredients."""
+    """Serialize recipe for the model — title, steps, servings, ingredients."""
     read = RecipeRead.model_validate(recipe)
     return json.dumps(read.model_dump(mode="json"))
 
 
 def _apply_revised_recipe(db: Session, recipe: Recipe, revised: RecipeCreate) -> None:
     recipe.title = revised.title
-    recipe.instructions = revised.instructions
     recipe.servings = revised.servings
 
+    for step in list(recipe.steps):
+        db.delete(step)
     for ing in list(recipe.ingredients):
         db.delete(ing)
     db.flush()
+
+    for step in revised.steps:
+        db.add(
+            RecipeStep(
+                recipe_id=recipe.id,
+                step_number=step.step_number,
+                text=step.text,
+            )
+        )
 
     for ing in revised.ingredients:
         db.add(

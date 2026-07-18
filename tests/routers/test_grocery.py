@@ -57,7 +57,6 @@ def plan_with_linked_recipes(db, user: User) -> MealPlanWeek:
     recipe = Recipe(
         user_id=user.id,
         title="R1",
-        instructions="i",
         servings=2,
         source_model="test",
     )

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.models.meal_plan import MealCourseRole
 
@@ -18,29 +18,42 @@ class RecipeIngredientCreate(RecipeIngredientBase):
 
 
 class RecipeIngredientRead(RecipeIngredientBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
 
-    class Config:
-        from_attributes = True
+
+class RecipeStepBase(BaseModel):
+    step_number: int
+    text: str
+
+
+class RecipeStepCreate(RecipeStepBase):
+    pass
+
+
+class RecipeStepRead(RecipeStepBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
 
 
 class RecipeBase(BaseModel):
     title: str
-    instructions: str
     servings: Optional[int] = None
 
 
 class RecipeCreate(RecipeBase):
+    steps: List[RecipeStepCreate]
     ingredients: List[RecipeIngredientCreate]
     role: Optional[MealCourseRole] = None
 
 
 class RecipeRead(RecipeBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     created_at: datetime
     updated_at: datetime
+    steps: List[RecipeStepRead]
     ingredients: List[RecipeIngredientRead]
-
-    class Config:
-        from_attributes = True
-

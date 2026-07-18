@@ -8,7 +8,7 @@ from fastapi import HTTPException, status
 from app.clients.base import AIClientBase, MealGenerationMeal
 from app.config import get_settings
 from app.models.meal_plan import MealPlanWeek, PlannedMeal, PlannedMealCourse, PlannedMealRecipe
-from app.models.recipe import Recipe, RecipeIngredient
+from app.models.recipe import Recipe, RecipeIngredient, RecipeStep
 from app.models.user import User
 from app.schemas.meal_plans import PlannedMealCourseUpsert
 from app.schemas.recipes import RecipeCreate
@@ -32,12 +32,20 @@ def _persist_course_recipe(
     recipe = Recipe(
         user_id=user.id,
         title=recipe_create.title,
-        instructions=recipe_create.instructions,
         servings=recipe_create.servings,
         source_model=provider_label,
     )
     db.add(recipe)
     db.flush()
+
+    for step in recipe_create.steps:
+        db.add(
+            RecipeStep(
+                recipe_id=recipe.id,
+                step_number=step.step_number,
+                text=step.text,
+            )
+        )
 
     for ing in recipe_create.ingredients:
         db.add(
