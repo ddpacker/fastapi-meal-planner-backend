@@ -12,6 +12,7 @@ from app.models.recipe import Recipe, RecipeIngredient, RecipeStep
 from app.models.user import User
 from app.schemas.recipes import RecipeCreate, RecipeIngredientCreate, RecipeStepCreate
 from app.services.chat_service import send_message
+from app.services.ingredient_service import get_or_create as get_or_create_ingredient
 
 
 @pytest.fixture()
@@ -31,13 +32,13 @@ def recipe_session(db: Session, user: User) -> tuple[Recipe, ChatSession]:
             text="Cook thoroughly.",
         )
     )
+    catalog = get_or_create_ingredient(db, "chicken breast", "meat")
     db.add(
         RecipeIngredient(
             recipe_id=recipe.id,
-            name="chicken breast",
+            ingredient_id=catalog.id,
             quantity=500,
             unit="g",
-            category="meat",
         )
     )
     db.add(
@@ -138,7 +139,7 @@ class TestSendMessage:
         assert steps[0].text == "Pan fry tofu."
         ings = list(recipe.ingredients)
         assert len(ings) == 1
-        assert ings[0].name == "tofu"
+        assert ings[0].ingredient.name == "tofu"
         assert (
             db.execute(
                 select(NutritionInfo).where(NutritionInfo.recipe_id == recipe.id)

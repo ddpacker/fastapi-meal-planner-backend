@@ -76,13 +76,16 @@ flowchart TD
     - Supports up to one recipe per course slot. Default slot is `entree`.
 
 - **Ingredients & grocery items**
-  - `RecipeIngredient`
-    - Fields: `id`, `recipe_id`, `name` (singular), `quantity` (Numeric), `unit` (singular, metric), `category`.
+  - `Ingredient` – global shared catalog of ingredient identity (append-mostly).
+    - Fields: `id`, `name` (unique, normalized lowercase), `category`, timestamps.
+  - `RecipeIngredient` – association of a recipe to a catalog ingredient with per-use amount.
+    - Fields: `id`, `recipe_id`, `ingredient_id`, `quantity` (Numeric), `unit` (singular, metric).
     - AI is instructed to output singular names and metric units for clean USDA lookups.
   - `GroceryList` – per-week grocery aggregation.
     - Fields: `id`, `meal_plan_week_id`, `title`, `notes`, timestamps.
   - `GroceryItem`
     - Fields: `id`, `grocery_list_id`, `name`, `total_quantity`, `unit`, `category`, `checked`.
+    - Still denormalized; intended to join the global catalog in a later pass.
 
 - **Chat & AI interactions**
   - `ChatSession`

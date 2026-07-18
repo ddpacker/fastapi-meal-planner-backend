@@ -12,6 +12,7 @@ from app.models.recipe import Recipe, RecipeIngredient, RecipeStep
 from app.models.user import User
 from app.schemas.meal_plans import PlannedMealCourseUpsert
 from app.schemas.recipes import RecipeCreate
+from app.services.ingredient_service import get_or_create as get_or_create_ingredient
 
 
 def _persist_course_recipe(
@@ -48,13 +49,13 @@ def _persist_course_recipe(
         )
 
     for ing in recipe_create.ingredients:
+        catalog = get_or_create_ingredient(db, ing.name, ing.category)
         db.add(
             RecipeIngredient(
                 recipe_id=recipe.id,
-                name=ing.name,
+                ingredient_id=catalog.id,
                 quantity=ing.quantity,
                 unit=ing.unit,
-                category=ing.category,
             )
         )
 

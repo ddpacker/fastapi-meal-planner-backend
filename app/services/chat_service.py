@@ -9,6 +9,7 @@ from app.models.chat import ChatMessage, ChatSession
 from app.models.recipe import Recipe, RecipeIngredient, RecipeStep
 from app.models.user import User
 from app.schemas.recipes import RecipeCreate, RecipeRead
+from app.services.ingredient_service import get_or_create as get_or_create_ingredient
 
 
 def send_message(
@@ -23,7 +24,9 @@ def send_message(
         .where(ChatSession.id == session_id, ChatSession.user_id == user.id)
         .options(
             selectinload(ChatSession.recipe).selectinload(Recipe.steps),
-            selectinload(ChatSession.recipe).selectinload(Recipe.ingredients),
+            selectinload(ChatSession.recipe)
+            .selectinload(Recipe.ingredients)
+            .selectinload(RecipeIngredient.ingredient),
             selectinload(ChatSession.recipe).selectinload(Recipe.nutrition_info),
         )
     ).scalar_one_or_none()
@@ -98,13 +101,13 @@ def _apply_revised_recipe(db: Session, recipe: Recipe, revised: RecipeCreate) ->
         )
 
     for ing in revised.ingredients:
+        catalog = get_or_create_ingredient(db, ing.name, ing.category)
         db.add(
             RecipeIngredient(
                 recipe_id=recipe.id,
-                name=ing.name,
+                ingredient_id=catalog.id,
                 quantity=ing.quantity,
                 unit=ing.unit,
-                category=ing.category,
             )
         )
 

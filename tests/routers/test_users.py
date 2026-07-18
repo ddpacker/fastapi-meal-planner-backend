@@ -20,6 +20,7 @@ from app.models.nutrition import NutritionInfo
 from app.models.recipe import Recipe, RecipeIngredient
 from app.models.user import User
 from app.models.user_preferences import UserPreferences
+from app.services.ingredient_service import get_or_create as get_or_create_ingredient
 
 
 def _make_client(db: Session) -> TestClient:
@@ -363,6 +364,7 @@ def test_delete_me_cascades_all_related_rows(db: Session) -> None:
 
     grocery_list = GroceryList(meal_plan_week_id=plan.id, title="Shop")
     chat_session = ChatSession(recipe_id=recipe.id, user_id=user.id, title="Chat")
+    carrot = get_or_create_ingredient(db, "carrot", "produce")
     db.add_all(
         [
             PlannedMealRecipe(
@@ -373,10 +375,9 @@ def test_delete_me_cascades_all_related_rows(db: Session) -> None:
             ),
             RecipeIngredient(
                 recipe_id=recipe.id,
-                name="carrot",
+                ingredient_id=carrot.id,
                 quantity=100,
                 unit="gram",
-                category="produce",
             ),
             NutritionInfo(recipe_id=recipe.id, calories=250),
             grocery_list,

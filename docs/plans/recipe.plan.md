@@ -49,7 +49,7 @@ todos:
       ingredients, backfill distinct (name, category) from recipe_ingredients, add ingredient_id
       FK + backfill, then drop name/category. NOTE: GroceryItem repeats the same name/quantity/
       unit/category shape — out of scope here, but the global catalog is meant to back it later.
-    status: pending
+    status: done
     dependencies:
       - recipe-crud
 
@@ -100,7 +100,7 @@ todos:
 | ✅ Done | AI recipe generation via generate_recipes_for_plan service |
 | ✅ Done | Chat session create/get/send wired to chat_service (see chat.plan.md) |
 | ✅ Done | **Refactor:** structured instructions → recipe_steps |
-| ⏳ Pending | **Refactor:** global Ingredient catalog + association RecipeIngredient |
+| ✅ Done | **Refactor:** global Ingredient catalog + association RecipeIngredient |
 | ⏳ Pending | GET /recipes list endpoint with search + pagination |
 | ⏳ Pending | PUT /recipes/{id} and DELETE /recipes/{id} |
 | ⏳ Pending | Expanded router + service tests |

@@ -9,6 +9,7 @@ from app.models.recipe import Recipe, RecipeIngredient, RecipeStep
 from app.models.user import User
 from app.schemas.nutrition import NutritionInfoCreate, NutritionInfoRead
 from app.schemas.recipes import RecipeCreate, RecipeRead
+from app.services.ingredient_service import get_or_create as get_or_create_ingredient
 
 
 router = APIRouter(prefix="/recipes", tags=["recipes"])
@@ -38,14 +39,15 @@ def create_recipe(
         )
 
     for ingr_in in recipe_in.ingredients:
-        ingredient = RecipeIngredient(
-            recipe_id=recipe.id,
-            name=ingr_in.name,
-            quantity=ingr_in.quantity,
-            unit=ingr_in.unit,
-            category=ingr_in.category,
+        catalog = get_or_create_ingredient(db, ingr_in.name, ingr_in.category)
+        db.add(
+            RecipeIngredient(
+                recipe_id=recipe.id,
+                ingredient_id=catalog.id,
+                quantity=ingr_in.quantity,
+                unit=ingr_in.unit,
+            )
         )
-        db.add(ingredient)
 
     db.commit()
     db.refresh(recipe)

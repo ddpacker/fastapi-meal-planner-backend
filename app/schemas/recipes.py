@@ -6,21 +6,35 @@ from pydantic import BaseModel, ConfigDict
 from app.models.meal_plan import MealCourseRole
 
 
-class RecipeIngredientBase(BaseModel):
+class IngredientBase(BaseModel):
+    name: str
+    category: Optional[str] = None
+
+
+class IngredientCreate(IngredientBase):
+    pass
+
+
+class IngredientRead(IngredientBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+
+
+class RecipeIngredientCreate(BaseModel):
     name: str
     quantity: Optional[float] = None
     unit: Optional[str] = None
     category: Optional[str] = None
 
 
-class RecipeIngredientCreate(RecipeIngredientBase):
-    pass
-
-
-class RecipeIngredientRead(RecipeIngredientBase):
+class RecipeIngredientRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    quantity: Optional[float] = None
+    unit: Optional[str] = None
+    ingredient: IngredientRead
 
 
 class RecipeStepBase(BaseModel):

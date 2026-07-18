@@ -115,7 +115,7 @@ class TestGenerateRecipesForPlan:
 
         ingredients = db.query(RecipeIngredient).all()
         assert len(ingredients) > 0
-        names = {i.name for i in ingredients}
+        names = {i.ingredient.name for i in ingredients}
         # Both fixture recipes contain these
         assert "chicken breast" in names
         assert "broccoli floret" in names

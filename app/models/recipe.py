@@ -68,10 +68,11 @@ class RecipeIngredient(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     recipe_id: Mapped[int] = mapped_column(ForeignKey("recipes.id"), index=True, nullable=False)
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    ingredient_id: Mapped[int] = mapped_column(
+        ForeignKey("ingredients.id"), index=True, nullable=False
+    )
     quantity: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
     unit: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    category: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -81,3 +82,4 @@ class RecipeIngredient(Base):
     )
 
     recipe = relationship("Recipe", back_populates="ingredients")
+    ingredient = relationship("Ingredient", back_populates="recipe_ingredients")

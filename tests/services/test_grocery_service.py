@@ -14,6 +14,7 @@ from app.models.meal_plan import (
 from app.models.recipe import Recipe, RecipeIngredient
 from app.models.user import User
 from app.services.grocery_service import generate_grocery_list
+from app.services.ingredient_service import get_or_create as get_or_create_ingredient
 
 
 @pytest.fixture()
@@ -55,28 +56,27 @@ def plan_with_recipes(db: Session, user: User) -> MealPlanWeek:
     db.add_all([r1, r2])
     db.flush()
 
+    garlic = get_or_create_ingredient(db, "Garlic", "produce")
+    soy = get_or_create_ingredient(db, "Soy Sauce", "condiments")
     db.add_all(
         [
             RecipeIngredient(
                 recipe_id=r1.id,
-                name="Garlic",
+                ingredient_id=garlic.id,
                 quantity=2,
                 unit="cloves",
-                category="produce",
             ),
             RecipeIngredient(
                 recipe_id=r2.id,
-                name="garlic",
+                ingredient_id=garlic.id,
                 quantity=3,
                 unit="cloves",
-                category="produce",
             ),
             RecipeIngredient(
                 recipe_id=r2.id,
-                name="Soy Sauce",
+                ingredient_id=soy.id,
                 quantity=1,
                 unit="tbsp",
-                category="condiments",
             ),
         ]
     )
@@ -111,10 +111,10 @@ class TestGenerateGroceryList:
         assert "Grocery List for Test Week" == result.title
         items = sorted(result.items, key=lambda i: i.name)
         assert len(items) == 2
-        garlic = next(i for i in items if i.name.lower().startswith("garlic"))
+        garlic = next(i for i in items if i.name == "garlic")
         assert garlic.total_quantity == 5
         assert garlic.unit == "cloves"
-        soy = next(i for i in items if "Soy" in i.name)
+        soy = next(i for i in items if i.name == "soy sauce")
         assert soy.total_quantity == 1
         assert soy.unit == "tbsp"
 
