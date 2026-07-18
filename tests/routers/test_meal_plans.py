@@ -16,7 +16,7 @@ from app.models.meal_plan import (
     PlannedMeal,
     PlannedMealCourse,
 )
-from app.models.recipe import Recipe
+from app.models.recipe import Recipe, RecipeStep
 from app.models.user import User
 
 
@@ -101,6 +101,8 @@ def test_post_generate_recipes_returns_plan_and_invokes_fake_client(
     fake_ai: FakeClient,
     auth_headers: dict[str, str],
     plan_with_meals: MealPlanWeek,
+    db: Session,
+    user: User,
 ) -> None:
     response = client.post(
         f"/meal-plans/{plan_with_meals.id}/generate-recipes",
@@ -124,6 +126,13 @@ def test_post_generate_recipes_returns_plan_and_invokes_fake_client(
         ("Tacos", [(MealCourseRole.entree, None)]),
         ("Stir Fry", [(MealCourseRole.entree, None)]),
     ]
+
+    recipes = db.execute(select(Recipe).where(Recipe.user_id == user.id)).scalars().all()
+    assert len(recipes) == 2
+    assert {r.title for r in recipes} == {"Chicken Tacos", "Vegetable Stir Fry"}
+    assert (
+        db.execute(select(func.count()).select_from(RecipeStep)).scalar_one() >= 2
+    )
 
 
 def test_post_meal_plan_creates_default_entree_course(

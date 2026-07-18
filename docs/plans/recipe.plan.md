@@ -86,7 +86,7 @@ todos:
       - Router tests for GET /recipes (list/filter), PUT, DELETE
       - Assert DB state (rows created/deleted) not just response shape
       - For AI-linked endpoints (generate, chat), assert FakeClient.recorded_calls
-    status: pending
+    status: done
     dependencies:
       - recipe-search-and-filter
       - recipe-update-delete
@@ -103,7 +103,7 @@ todos:
 | ✅ Done | **Refactor:** global Ingredient catalog + association RecipeIngredient |
 | ✅ Done | GET /recipes list endpoint with search + pagination |
 | ✅ Done | PUT /recipes/{id} and DELETE /recipes/{id} |
-| ⏳ Pending | Expanded router + service tests |
+| ✅ Done | Expanded router + service tests |
 
 ---
 

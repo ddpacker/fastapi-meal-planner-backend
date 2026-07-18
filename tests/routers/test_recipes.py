@@ -2,6 +2,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+import datetime
+
 from app.core.security import create_access_token, get_password_hash
 from app.db.session import get_db
 from app.main import app
@@ -16,7 +18,6 @@ from app.models.nutrition import NutritionInfo
 from app.models.recipe import Recipe, RecipeIngredient, RecipeStep
 from app.models.user import User
 from app.services.ingredient_service import get_or_create as get_or_create_ingredient
-import datetime
 
 
 def _make_client(db: Session) -> TestClient:
@@ -115,6 +116,113 @@ def test_list_recipes_paginates(db: Session, user: User) -> None:
 def test_list_recipes_requires_auth(db: Session) -> None:
     client = _make_client(db)
     assert client.get("/recipes").status_code == 401
+
+
+def test_create_recipe_persists_steps_and_catalog_ingredients(db: Session, user: User) -> None:
+    payload = {
+        "title": "Manual Soup",
+        "servings": 3,
+        "steps": [
+            {"step_number": 1, "text": "Simmer broth"},
+            {"step_number": 2, "text": "Add vegetables"},
+        ],
+        "ingredients": [
+            {"name": "Carrot", "quantity": 100, "unit": "gram", "category": "produce"},
+            {"name": "Salt", "quantity": 2, "unit": "gram", "category": "spices"},
+        ],
+    }
+    client = _make_client(db)
+    response = client.post("/recipes", json=payload, headers=_auth_headers(user))
+    assert response.status_code == 201
+    data = response.json()
+    assert data["title"] == "Manual Soup"
+    assert data["servings"] == 3
+    assert len(data["steps"]) == 2
+    assert {i["ingredient"]["name"] for i in data["ingredients"]} == {"carrot", "salt"}
+
+    recipe_id = data["id"]
+    db.expire_all()
+    recipe = db.execute(select(Recipe).where(Recipe.id == recipe_id)).scalar_one()
+    assert recipe.user_id == user.id
+    assert recipe.source_model is None
+    steps = db.execute(
+        select(RecipeStep).where(RecipeStep.recipe_id == recipe_id).order_by(RecipeStep.step_number)
+    ).scalars().all()
+    assert [s.text for s in steps] == ["Simmer broth", "Add vegetables"]
+    ings = db.execute(
+        select(RecipeIngredient).where(RecipeIngredient.recipe_id == recipe_id)
+    ).scalars().all()
+    assert {i.ingredient.name for i in ings} == {"carrot", "salt"}
+
+
+def test_get_recipe_returns_nested_details(db: Session, user: User) -> None:
+    recipe = _add_recipe(db, user, title="Detail Recipe", source_model="test")
+    catalog = get_or_create_ingredient(db, "lime", "produce")
+    db.add(RecipeStep(recipe_id=recipe.id, step_number=1, text="Squeeze lime"))
+    db.add(
+        RecipeIngredient(
+            recipe_id=recipe.id, ingredient_id=catalog.id, quantity=1, unit="piece"
+        )
+    )
+    db.commit()
+
+    client = _make_client(db)
+    response = client.get(f"/recipes/{recipe.id}", headers=_auth_headers(user))
+    assert response.status_code == 200
+    data = response.json()
+    assert data["title"] == "Detail Recipe"
+    assert data["steps"][0]["text"] == "Squeeze lime"
+    assert data["ingredients"][0]["ingredient"]["name"] == "lime"
+    assert data["ingredients"][0]["quantity"] == 1.0
+
+
+def test_get_recipe_other_user_returns_404(db: Session, user: User) -> None:
+    other = User(email="other@example.com", password_hash=get_password_hash("x"))
+    db.add(other)
+    db.flush()
+    foreign = _add_recipe(db, other, title="Secret")
+    db.commit()
+
+    client = _make_client(db)
+    assert (
+        client.get(f"/recipes/{foreign.id}", headers=_auth_headers(user)).status_code == 404
+    )
+
+
+def test_get_recipes_for_meal_returns_linked_recipes(db: Session, user: User) -> None:
+    plan = MealPlanWeek(
+        user_id=user.id,
+        start_date=datetime.date(2026, 4, 14),
+        end_date=datetime.date(2026, 4, 20),
+    )
+    db.add(plan)
+    db.flush()
+    meal = PlannedMeal(meal_plan_week_id=plan.id, day_index=0, meal_name="Dinner")
+    db.add(meal)
+    db.flush()
+    course = PlannedMealCourse(
+        planned_meal_id=meal.id, role=MealCourseRole.entree, description=None
+    )
+    recipe = _add_recipe(db, user, title="Linked Entree")
+    db.add(course)
+    db.flush()
+    db.add(
+        PlannedMealRecipe(
+            planned_meal_id=meal.id,
+            planned_meal_course_id=course.id,
+            recipe_id=recipe.id,
+            role=MealCourseRole.entree,
+        )
+    )
+    db.commit()
+
+    client = _make_client(db)
+    response = client.get(f"/recipes/meals/{meal.id}", headers=_auth_headers(user))
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["title"] == "Linked Entree"
+    assert data[0]["id"] == recipe.id
 
 
 def test_put_recipe_replaces_steps_and_ingredients(db: Session, user: User) -> None:

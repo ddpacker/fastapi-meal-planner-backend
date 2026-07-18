@@ -11,9 +11,9 @@ from app.models.meal_plan import (
     PlannedMealCourse,
     PlannedMealRecipe,
 )
-from app.models.recipe import Recipe, RecipeIngredient
+from app.models.recipe import Recipe, RecipeIngredient, RecipeStep
 from app.models.user import User
-from app.services.recipe_service import generate_recipes_for_plan
+from app.services.recipe_service import generate_recipes_for_plan, list_recipes
 
 
 @pytest.fixture()
@@ -119,6 +119,34 @@ class TestGenerateRecipesForPlan:
         # Both fixture recipes contain these
         assert "chicken breast" in names
         assert "broccoli floret" in names
+
+    def test_steps_persisted(self, db: Session, user: User, plan_with_meals: MealPlanWeek):
+        client = FakeClient()
+
+        generate_recipes_for_plan(plan_with_meals.id, db, client, user)
+
+        assert client.recorded_calls[0].method == "generate_recipes"
+        steps = db.query(RecipeStep).all()
+        assert len(steps) > 0
+        texts = {s.text for s in steps}
+        assert any("Season chicken" in t for t in texts)
+        assert any("wok" in t.lower() for t in texts)
+
+    def test_list_recipes_scopes_to_user(self, db: Session, user: User):
+        other = User(email="other@example.com", password_hash="x")
+        db.add(other)
+        db.flush()
+        db.add_all(
+            [
+                Recipe(user_id=user.id, title="Mine", servings=1),
+                Recipe(user_id=other.id, title="Theirs", servings=1),
+            ]
+        )
+        db.commit()
+
+        results = list_recipes(db, user, search="Mine")
+        assert len(results) == 1
+        assert results[0].title == "Mine"
 
     def test_planned_meal_status_updated(self, db: Session, user: User, plan_with_meals: MealPlanWeek):
         """PlannedMeal.status is set to 'planned' after recipe generation."""
