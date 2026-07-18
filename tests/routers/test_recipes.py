@@ -1,11 +1,22 @@
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.security import create_access_token, get_password_hash
 from app.db.session import get_db
 from app.main import app
-from app.models.recipe import Recipe
+from app.models.meal_plan import (
+    MealCourseRole,
+    MealPlanWeek,
+    PlannedMeal,
+    PlannedMealCourse,
+    PlannedMealRecipe,
+)
+from app.models.nutrition import NutritionInfo
+from app.models.recipe import Recipe, RecipeIngredient, RecipeStep
 from app.models.user import User
+from app.services.ingredient_service import get_or_create as get_or_create_ingredient
+import datetime
 
 
 def _make_client(db: Session) -> TestClient:
@@ -104,3 +115,185 @@ def test_list_recipes_paginates(db: Session, user: User) -> None:
 def test_list_recipes_requires_auth(db: Session) -> None:
     client = _make_client(db)
     assert client.get("/recipes").status_code == 401
+
+
+def test_put_recipe_replaces_steps_and_ingredients(db: Session, user: User) -> None:
+    recipe = _add_recipe(db, user, title="Old Title", servings=2)
+    old_ing = get_or_create_ingredient(db, "chicken breast", "meat")
+    db.add(
+        RecipeStep(recipe_id=recipe.id, step_number=1, text="Old step")
+    )
+    db.add(
+        RecipeIngredient(
+            recipe_id=recipe.id,
+            ingredient_id=old_ing.id,
+            quantity=500,
+            unit="gram",
+        )
+    )
+    db.commit()
+
+    payload = {
+        "title": "New Title",
+        "servings": 4,
+        "steps": [
+            {"step_number": 1, "text": "Prep tofu"},
+            {"step_number": 2, "text": "Cook and serve"},
+        ],
+        "ingredients": [
+            {"name": "tofu", "quantity": 200, "unit": "gram", "category": "protein"},
+        ],
+    }
+    client = _make_client(db)
+    response = client.put(
+        f"/recipes/{recipe.id}",
+        json=payload,
+        headers=_auth_headers(user),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["title"] == "New Title"
+    assert data["servings"] == 4
+    assert [s["text"] for s in data["steps"]] == ["Prep tofu", "Cook and serve"]
+    assert len(data["ingredients"]) == 1
+    assert data["ingredients"][0]["ingredient"]["name"] == "tofu"
+
+    db.expire_all()
+    steps = db.execute(
+        select(RecipeStep).where(RecipeStep.recipe_id == recipe.id).order_by(RecipeStep.step_number)
+    ).scalars().all()
+    ings = db.execute(
+        select(RecipeIngredient).where(RecipeIngredient.recipe_id == recipe.id)
+    ).scalars().all()
+    assert [s.text for s in steps] == ["Prep tofu", "Cook and serve"]
+    assert len(ings) == 1
+    assert ings[0].ingredient.name == "tofu"
+    assert (
+        db.execute(select(func.count()).select_from(RecipeIngredient)).scalar_one() == 1
+    )
+
+
+def test_put_recipe_unknown_or_other_user_returns_404(db: Session, user: User) -> None:
+    other = User(email="other@example.com", password_hash=get_password_hash("x"))
+    db.add(other)
+    db.flush()
+    foreign = _add_recipe(db, other, title="Foreign")
+    db.commit()
+
+    payload = {
+        "title": "Hijack",
+        "servings": 1,
+        "steps": [{"step_number": 1, "text": "x"}],
+        "ingredients": [],
+    }
+    client = _make_client(db)
+    assert (
+        client.put(
+            f"/recipes/{foreign.id}",
+            json=payload,
+            headers=_auth_headers(user),
+        ).status_code
+        == 404
+    )
+    assert (
+        client.put(
+            "/recipes/99999",
+            json=payload,
+            headers=_auth_headers(user),
+        ).status_code
+        == 404
+    )
+
+
+def test_delete_recipe_cascades_and_returns_204(db: Session, user: User) -> None:
+    plan = MealPlanWeek(
+        user_id=user.id,
+        start_date=datetime.date(2026, 4, 14),
+        end_date=datetime.date(2026, 4, 20),
+    )
+    db.add(plan)
+    db.flush()
+    meal = PlannedMeal(meal_plan_week_id=plan.id, day_index=0, meal_name="Dinner")
+    db.add(meal)
+    db.flush()
+    course = PlannedMealCourse(
+        planned_meal_id=meal.id, role=MealCourseRole.entree, description=None
+    )
+    recipe = _add_recipe(db, user, title="To Delete")
+    db.add(course)
+    db.flush()
+
+    catalog = get_or_create_ingredient(db, "onion", "produce")
+    db.add(RecipeStep(recipe_id=recipe.id, step_number=1, text="Chop"))
+    db.add(
+        RecipeIngredient(
+            recipe_id=recipe.id, ingredient_id=catalog.id, quantity=1, unit="piece"
+        )
+    )
+    db.add(NutritionInfo(recipe_id=recipe.id, calories=100))
+    db.add(
+        PlannedMealRecipe(
+            planned_meal_id=meal.id,
+            planned_meal_course_id=course.id,
+            recipe_id=recipe.id,
+            role=MealCourseRole.entree,
+        )
+    )
+    db.commit()
+    recipe_id = recipe.id
+
+    client = _make_client(db)
+    response = client.delete(f"/recipes/{recipe_id}", headers=_auth_headers(user))
+    assert response.status_code == 204
+
+    assert (
+        db.execute(select(Recipe).where(Recipe.id == recipe_id)).scalar_one_or_none()
+        is None
+    )
+    assert (
+        db.execute(
+            select(func.count())
+            .select_from(RecipeStep)
+            .where(RecipeStep.recipe_id == recipe_id)
+        ).scalar_one()
+        == 0
+    )
+    assert (
+        db.execute(
+            select(func.count())
+            .select_from(RecipeIngredient)
+            .where(RecipeIngredient.recipe_id == recipe_id)
+        ).scalar_one()
+        == 0
+    )
+    assert (
+        db.execute(
+            select(func.count())
+            .select_from(NutritionInfo)
+            .where(NutritionInfo.recipe_id == recipe_id)
+        ).scalar_one()
+        == 0
+    )
+    assert (
+        db.execute(
+            select(func.count())
+            .select_from(PlannedMealRecipe)
+            .where(PlannedMealRecipe.recipe_id == recipe_id)
+        ).scalar_one()
+        == 0
+    )
+
+
+def test_delete_recipe_unknown_or_other_user_returns_404(db: Session, user: User) -> None:
+    other = User(email="other@example.com", password_hash=get_password_hash("x"))
+    db.add(other)
+    db.flush()
+    foreign = _add_recipe(db, other, title="Foreign")
+    db.commit()
+
+    client = _make_client(db)
+    assert (
+        client.delete(f"/recipes/{foreign.id}", headers=_auth_headers(user)).status_code
+        == 404
+    )
+    assert client.delete("/recipes/99999", headers=_auth_headers(user)).status_code == 404

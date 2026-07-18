@@ -9,7 +9,7 @@ from app.models.nutrition import NutritionInfo
 from app.models.recipe import Recipe, RecipeIngredient, RecipeStep
 from app.models.user import User
 from app.schemas.nutrition import NutritionInfoRead
-from app.schemas.recipes import RecipeCreate, RecipeRead, RecipeSummaryRead
+from app.schemas.recipes import RecipeCreate, RecipeRead, RecipeSummaryRead, RecipeUpdate
 from app.services import recipe_service
 from app.services.ingredient_service import get_or_create as get_or_create_ingredient
 
@@ -120,6 +120,25 @@ def get_recipe(
     current_user: User = Depends(get_current_user),
 ) -> Recipe:
     return recipe_service.get_owned_recipe(db, current_user, recipe_id)
+
+
+@router.put("/{recipe_id}", response_model=RecipeRead)
+def update_recipe(
+    recipe_id: int,
+    recipe_in: RecipeUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Recipe:
+    return recipe_service.update_recipe(db, current_user, recipe_id, recipe_in)
+
+
+@router.delete("/{recipe_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_recipe(
+    recipe_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    recipe_service.delete_recipe(db, current_user, recipe_id)
 
 
 @router.post("/{recipe_id}/nutrition", response_model=NutritionInfoRead, status_code=status.HTTP_201_CREATED)

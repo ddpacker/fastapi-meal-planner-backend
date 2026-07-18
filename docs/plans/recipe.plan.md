@@ -74,7 +74,7 @@ todos:
       Return 204 for DELETE. Add tests for both.
       PUT replaces both the step list and the ingredient line-items (via ingredient_service
       get-or-create); it does not mutate shared Ingredient catalog rows.
-    status: pending
+    status: done
     dependencies:
       - recipe-crud
       - recipe-instructions-steps
@@ -102,7 +102,7 @@ todos:
 | ✅ Done | **Refactor:** structured instructions → recipe_steps |
 | ✅ Done | **Refactor:** global Ingredient catalog + association RecipeIngredient |
 | ✅ Done | GET /recipes list endpoint with search + pagination |
-| ⏳ Pending | PUT /recipes/{id} and DELETE /recipes/{id} |
+| ✅ Done | PUT /recipes/{id} and DELETE /recipes/{id} |
 | ⏳ Pending | Expanded router + service tests |
 
 ---

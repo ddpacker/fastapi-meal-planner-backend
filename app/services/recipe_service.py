@@ -11,7 +11,7 @@ from app.models.meal_plan import MealPlanWeek, PlannedMeal, PlannedMealCourse, P
 from app.models.recipe import Recipe, RecipeIngredient, RecipeStep
 from app.models.user import User
 from app.schemas.meal_plans import PlannedMealCourseUpsert
-from app.schemas.recipes import RecipeCreate
+from app.schemas.recipes import RecipeCreate, RecipeUpdate
 from app.services.ingredient_service import get_or_create as get_or_create_ingredient
 
 
@@ -49,6 +49,55 @@ def get_owned_recipe(db: Session, user: User, recipe_id: int) -> Recipe:
     if recipe is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipe not found")
     return recipe
+
+
+def update_recipe(
+    db: Session,
+    user: User,
+    recipe_id: int,
+    recipe_in: RecipeUpdate,
+) -> Recipe:
+    recipe = get_owned_recipe(db, user, recipe_id)
+    recipe.title = recipe_in.title
+    recipe.servings = recipe_in.servings
+
+    for step in list(recipe.steps):
+        db.delete(step)
+    for ing in list(recipe.ingredients):
+        db.delete(ing)
+    db.flush()
+
+    for step in recipe_in.steps:
+        db.add(
+            RecipeStep(
+                recipe_id=recipe.id,
+                step_number=step.step_number,
+                text=step.text,
+            )
+        )
+    for ing in recipe_in.ingredients:
+        catalog = get_or_create_ingredient(db, ing.name, ing.category)
+        db.add(
+            RecipeIngredient(
+                recipe_id=recipe.id,
+                ingredient_id=catalog.id,
+                quantity=ing.quantity,
+                unit=ing.unit,
+            )
+        )
+
+    db.commit()
+    return get_owned_recipe(db, user, recipe.id)
+
+
+def delete_recipe(db: Session, user: User, recipe_id: int) -> None:
+    recipe = db.execute(
+        select(Recipe).where(Recipe.id == recipe_id, Recipe.user_id == user.id)
+    ).scalar_one_or_none()
+    if recipe is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipe not found")
+    db.delete(recipe)
+    db.commit()
 
 
 def _persist_course_recipe(

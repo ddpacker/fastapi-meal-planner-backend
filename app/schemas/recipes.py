@@ -73,6 +73,11 @@ class RecipeRead(RecipeBase):
     ingredients: List[RecipeIngredientRead]
 
 
+class RecipeUpdate(RecipeBase):
+    steps: List[RecipeStepCreate]
+    ingredients: List[RecipeIngredientCreate]
+
+
 class RecipeSummaryRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
