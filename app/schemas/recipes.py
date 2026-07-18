@@ -71,3 +71,13 @@ class RecipeRead(RecipeBase):
     updated_at: datetime
     steps: List[RecipeStepRead]
     ingredients: List[RecipeIngredientRead]
+
+
+class RecipeSummaryRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    servings: Optional[int] = None
+    source_model: Optional[str] = None
+    created_at: datetime

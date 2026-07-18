@@ -59,7 +59,7 @@ todos:
       Support query params: search (title contains), source_model (filter by AI model), 
       page + page_size (default 20). Return RecipeRead list (without nested ingredients for 
       performance — use a RecipeSummaryRead schema). Filter by current_user.id.
-    status: pending
+    status: done
     dependencies:
       - recipe-crud
       - recipe-instructions-steps
@@ -101,7 +101,7 @@ todos:
 | ✅ Done | Chat session create/get/send wired to chat_service (see chat.plan.md) |
 | ✅ Done | **Refactor:** structured instructions → recipe_steps |
 | ✅ Done | **Refactor:** global Ingredient catalog + association RecipeIngredient |
-| ⏳ Pending | GET /recipes list endpoint with search + pagination |
+| ✅ Done | GET /recipes list endpoint with search + pagination |
 | ⏳ Pending | PUT /recipes/{id} and DELETE /recipes/{id} |
 | ⏳ Pending | Expanded router + service tests |
 

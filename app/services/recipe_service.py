@@ -15,6 +15,42 @@ from app.schemas.recipes import RecipeCreate
 from app.services.ingredient_service import get_or_create as get_or_create_ingredient
 
 
+def list_recipes(
+    db: Session,
+    user: User,
+    *,
+    search: str | None = None,
+    source_model: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> list[Recipe]:
+    stmt = select(Recipe).where(Recipe.user_id == user.id)
+    if search:
+        stmt = stmt.where(Recipe.title.ilike(f"%{search}%"))
+    if source_model is not None:
+        stmt = stmt.where(Recipe.source_model == source_model)
+    stmt = (
+        stmt.order_by(Recipe.created_at.desc(), Recipe.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    return list(db.execute(stmt).scalars().all())
+
+
+def get_owned_recipe(db: Session, user: User, recipe_id: int) -> Recipe:
+    recipe = db.execute(
+        select(Recipe)
+        .where(Recipe.id == recipe_id, Recipe.user_id == user.id)
+        .options(
+            selectinload(Recipe.steps),
+            selectinload(Recipe.ingredients).selectinload(RecipeIngredient.ingredient),
+        )
+    ).scalar_one_or_none()
+    if recipe is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipe not found")
+    return recipe
+
+
 def _persist_course_recipe(
     db: Session,
     user: User,

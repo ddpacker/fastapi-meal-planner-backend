@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.deps import get_current_user
 from app.db.session import get_db
@@ -7,8 +8,9 @@ from app.models.meal_plan import PlannedMeal, PlannedMealRecipe
 from app.models.nutrition import NutritionInfo
 from app.models.recipe import Recipe, RecipeIngredient, RecipeStep
 from app.models.user import User
-from app.schemas.nutrition import NutritionInfoCreate, NutritionInfoRead
-from app.schemas.recipes import RecipeCreate, RecipeRead
+from app.schemas.nutrition import NutritionInfoRead
+from app.schemas.recipes import RecipeCreate, RecipeRead, RecipeSummaryRead
+from app.services import recipe_service
 from app.services.ingredient_service import get_or_create as get_or_create_ingredient
 
 
@@ -50,24 +52,26 @@ def create_recipe(
         )
 
     db.commit()
-    db.refresh(recipe)
-    return recipe
+    return recipe_service.get_owned_recipe(db, current_user, recipe.id)
 
 
-@router.get("/{recipe_id}", response_model=RecipeRead)
-def get_recipe(
-    recipe_id: int,
+@router.get("", response_model=list[RecipeSummaryRead])
+def list_recipes(
+    search: str | None = Query(default=None),
+    source_model: str | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> Recipe:
-    recipe = (
-        db.query(Recipe)
-        .filter(Recipe.id == recipe_id, Recipe.user_id == current_user.id)
-        .first()
+) -> list[Recipe]:
+    return recipe_service.list_recipes(
+        db,
+        current_user,
+        search=search,
+        source_model=source_model,
+        page=page,
+        page_size=page_size,
     )
-    if not recipe:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipe not found")
-    return recipe
 
 
 @router.get("/meals/{meal_id}", response_model=list[RecipeRead])
@@ -76,37 +80,46 @@ def get_recipes_for_meal(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[Recipe]:
-    meal = (
-        db.query(PlannedMeal)
+    meal = db.execute(
+        select(PlannedMeal)
         .join(PlannedMeal.meal_plan_week)
-        .filter(
+        .where(
             PlannedMeal.id == meal_id,
             PlannedMeal.meal_plan_week.has(user_id=current_user.id),
         )
-        .first()
-    )
-    if not meal:
+    ).scalar_one_or_none()
+    if meal is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meal not found")
 
-    links = (
-        db.query(PlannedMealRecipe)
-        .filter(PlannedMealRecipe.planned_meal_id == meal.id)
-        .all()
-    )
+    links = db.execute(
+        select(PlannedMealRecipe).where(PlannedMealRecipe.planned_meal_id == meal.id)
+    ).scalars().all()
     if not links:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="No recipes for this meal"
         )
 
     recipe_ids = [link.recipe_id for link in links]
-    recipes = (
-        db.query(Recipe)
-        .filter(Recipe.id.in_(recipe_ids), Recipe.user_id == current_user.id)
-        .all()
-    )
+    recipes = db.execute(
+        select(Recipe)
+        .where(Recipe.id.in_(recipe_ids), Recipe.user_id == current_user.id)
+        .options(
+            selectinload(Recipe.steps),
+            selectinload(Recipe.ingredients).selectinload(RecipeIngredient.ingredient),
+        )
+    ).scalars().all()
     if not recipes:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No recipes found")
-    return recipes
+    return list(recipes)
+
+
+@router.get("/{recipe_id}", response_model=RecipeRead)
+def get_recipe(
+    recipe_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Recipe:
+    return recipe_service.get_owned_recipe(db, current_user, recipe_id)
 
 
 @router.post("/{recipe_id}/nutrition", response_model=NutritionInfoRead, status_code=status.HTTP_201_CREATED)
@@ -115,25 +128,17 @@ def calculate_nutrition(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> NutritionInfo:
-    """Calculate or refresh nutrition info for a recipe (via AI and/or external API)."""
-    recipe = (
-        db.query(Recipe)
-        .filter(Recipe.id == recipe_id, Recipe.user_id == current_user.id)
-        .first()
-    )
-    if not recipe:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipe not found")
+    recipe = recipe_service.get_owned_recipe(db, current_user, recipe_id)
 
-    # Check if nutrition info already exists; if so, delete it to replace
-    existing = db.query(NutritionInfo).filter(NutritionInfo.recipe_id == recipe_id).first()
-    if existing:
+    existing = db.execute(
+        select(NutritionInfo).where(NutritionInfo.recipe_id == recipe.id)
+    ).scalar_one_or_none()
+    if existing is not None:
         db.delete(existing)
         db.flush()
 
-    # TODO: integrate with nutrition_service to calculate nutrition
-    # For now, create a placeholder record
     nutrition_info = NutritionInfo(
-        recipe_id=recipe_id,
+        recipe_id=recipe.id,
         per_serving=True,
         source="placeholder",
     )
@@ -149,19 +154,13 @@ def get_nutrition(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> NutritionInfo:
-    """Fetch stored nutrition info for a recipe."""
-    recipe = (
-        db.query(Recipe)
-        .filter(Recipe.id == recipe_id, Recipe.user_id == current_user.id)
-        .first()
-    )
-    if not recipe:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipe not found")
+    recipe = recipe_service.get_owned_recipe(db, current_user, recipe_id)
 
-    nutrition_info = db.query(NutritionInfo).filter(NutritionInfo.recipe_id == recipe_id).first()
-    if not nutrition_info:
+    nutrition_info = db.execute(
+        select(NutritionInfo).where(NutritionInfo.recipe_id == recipe.id)
+    ).scalar_one_or_none()
+    if nutrition_info is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Nutrition info not found for this recipe"
         )
     return nutrition_info
-
