@@ -134,6 +134,11 @@ def test_post_generate_recipes_returns_plan_and_invokes_fake_client(
         db.execute(select(func.count()).select_from(RecipeStep)).scalar_one() >= 2
     )
 
+    recipe_ids = {r.id for r in recipes}
+    for meal in data["planned_meals"]:
+        for course in meal["courses"]:
+            assert course["recipe_id"] in recipe_ids
+
 
 def test_post_meal_plan_creates_default_entree_course(
     client: TestClient,
@@ -157,6 +162,7 @@ def test_post_meal_plan_creates_default_entree_course(
     assert len(meals[0]["courses"]) == 1
     assert meals[0]["courses"][0]["role"] == "entree"
     assert meals[0]["courses"][0]["description"] is None
+    assert meals[0]["courses"][0]["recipe_id"] is None
 
 
 def test_post_meal_plan_accepts_explicit_courses(

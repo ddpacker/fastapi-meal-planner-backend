@@ -71,6 +71,7 @@ flowchart TD
     - Fields: `id`, `recipe_id`, `step_number`, `text`, timestamps.
   - `PlannedMealCourse` – a course slot within a planned meal (starter, entree, side, dessert).
     - Fields: `id`, `planned_meal_id`, `role` (MealCourseRole), optional `description` (user hint for AI; null means AI chooses freely), timestamps.
+    - API responses include `recipe_id` (nullable) for the linked recipe when one has been generated.
   - `PlannedMealRecipe` – join table linking a `PlannedMealCourse` to a `Recipe` (also stores `planned_meal_id` and `role` for convenience).
     - Fields: `id`, `planned_meal_id`, `planned_meal_course_id`, `recipe_id`, `role` (MealCourseRole).
     - Supports up to one recipe per course slot. Default slot is `entree`.

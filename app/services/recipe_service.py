@@ -340,7 +340,9 @@ def generate_recipes_for_plan(
         select(MealPlanWeek)
         .where(MealPlanWeek.id == plan_id)
         .options(
-            selectinload(MealPlanWeek.planned_meals).selectinload(PlannedMeal.courses),
+            selectinload(MealPlanWeek.planned_meals)
+            .selectinload(PlannedMeal.courses)
+            .selectinload(PlannedMealCourse.planned_meal_recipes),
         )
     ).scalar_one()
 
