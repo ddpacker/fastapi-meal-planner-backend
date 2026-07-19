@@ -64,22 +64,29 @@ flowchart TD
     - Fields: `id`, `meal_plan_week_id`, `day_index` (0–6), `meal_name`, `status` (draft|planned), timestamps.
     - Related: `PlannedMealCourse` rows (one per course slot; default is a single `entree` with null `description`).
   - `Recipe` – a recipe owned by a `User`, persisted independently of meal plans.
-    - Fields: `id`, `user_id`, `title`, `instructions`, `servings`, `source_model`, timestamps.
+    - Fields: `id`, `user_id`, `title`, `servings`, `source_model`, timestamps.
+    - Related: ordered `RecipeStep` rows (replaces the former free-text `instructions` blob).
     - Recipes survive meal plan deletion and recipe regeneration. Only deleted explicitly by the user or via user account cascade.
+  - `RecipeStep` – one ordered instruction step for a recipe.
+    - Fields: `id`, `recipe_id`, `step_number`, `text`, timestamps.
   - `PlannedMealCourse` – a course slot within a planned meal (starter, entree, side, dessert).
     - Fields: `id`, `planned_meal_id`, `role` (MealCourseRole), optional `description` (user hint for AI; null means AI chooses freely), timestamps.
+    - API responses include `recipe_id` (nullable) for the linked recipe when one has been generated.
   - `PlannedMealRecipe` – join table linking a `PlannedMealCourse` to a `Recipe` (also stores `planned_meal_id` and `role` for convenience).
     - Fields: `id`, `planned_meal_id`, `planned_meal_course_id`, `recipe_id`, `role` (MealCourseRole).
     - Supports up to one recipe per course slot. Default slot is `entree`.
 
 - **Ingredients & grocery items**
-  - `RecipeIngredient`
-    - Fields: `id`, `recipe_id`, `name` (singular), `quantity` (Numeric), `unit` (singular, metric), `category`.
+  - `Ingredient` – global shared catalog of ingredient identity (append-mostly).
+    - Fields: `id`, `name` (unique, normalized lowercase), `category`, timestamps.
+  - `RecipeIngredient` – association of a recipe to a catalog ingredient with per-use amount.
+    - Fields: `id`, `recipe_id`, `ingredient_id`, `quantity` (Numeric), `unit` (singular, metric).
     - AI is instructed to output singular names and metric units for clean USDA lookups.
   - `GroceryList` – per-week grocery aggregation.
     - Fields: `id`, `meal_plan_week_id`, `title`, `notes`, timestamps.
   - `GroceryItem`
     - Fields: `id`, `grocery_list_id`, `name`, `total_quantity`, `unit`, `category`, `checked`.
+    - Still denormalized; intended to join the global catalog in a later pass.
 
 - **Chat & AI interactions**
   - `ChatSession`
@@ -159,7 +166,7 @@ flowchart TD
 
 - **Prompt templates** (`app/utils/prompt_templates.py`)
   - **Recipe generation prompt**: instruct the model to output structured JSON for each meal+course pair:
-    - `title`, `role` (MealCourseRole), `servings`, `instructions`, and `ingredients` (`name`, `quantity`, `unit`, `category`).
+    - `title`, `role` (MealCourseRole), `servings`, `steps` (ordered `{step_number, text}`), and `ingredients` (`name`, `quantity`, `unit`, `category`).
     - Ingredient names and units must be **singular** (e.g. "carrot", "gram") for clean USDA lookups.
     - All quantities must be in **metric units** — never imperial. The frontend converts for display based on `UserPreferences.unit_system`.
   - **Chat modification prompt**: include current recipe JSON + chat history, ask the model to:

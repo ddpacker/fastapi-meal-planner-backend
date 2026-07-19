@@ -11,15 +11,24 @@ _INGREDIENT_SCHEMA = {
     "required": ["name", "quantity", "unit", "category"],
 }
 
+_STEP_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "step_number": {"type": "integer"},
+        "text": {"type": "string"},
+    },
+    "required": ["step_number", "text"],
+}
+
 _RECIPE_SCHEMA_CHAT = {
     "type": "object",
     "properties": {
         "title": {"type": "string"},
         "servings": {"type": "integer"},
-        "instructions": {"type": "string"},
+        "steps": {"type": "array", "items": _STEP_SCHEMA},
         "ingredients": {"type": "array", "items": _INGREDIENT_SCHEMA},
     },
-    "required": ["title", "servings", "instructions", "ingredients"],
+    "required": ["title", "servings", "steps", "ingredients"],
 }
 
 _RECIPE_SCHEMA_GENERATION = {
@@ -32,10 +41,10 @@ _RECIPE_SCHEMA_GENERATION = {
             "description": "Course role for this slot; must match the requested slot.",
         },
         "servings": {"type": "integer"},
-        "instructions": {"type": "string"},
+        "steps": {"type": "array", "items": _STEP_SCHEMA},
         "ingredients": {"type": "array", "items": _INGREDIENT_SCHEMA},
     },
-    "required": ["title", "role", "servings", "instructions", "ingredients"],
+    "required": ["title", "role", "servings", "steps", "ingredients"],
 }
 
 GENERATE_RECIPES_TOOL = {

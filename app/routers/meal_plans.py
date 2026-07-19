@@ -8,6 +8,7 @@ from app.clients.base import AIClientBase
 from app.clients.factory import get_ai_client
 from app.core.deps import get_current_user
 from app.db.session import get_db
+import app.db.base  # noqa: F401 — register all models before relationship loaders
 from app.models.meal_plan import MealCourseRole, MealPlanWeek, PlannedMeal, PlannedMealCourse
 from app.models.user import User
 from app.schemas.meal_plans import (
@@ -22,6 +23,20 @@ from app.services import recipe_service
 
 
 router = APIRouter(prefix="/meal-plans", tags=["meal-plans"])
+
+
+def _plan_load():
+    return (
+        selectinload(MealPlanWeek.planned_meals)
+        .selectinload(PlannedMeal.courses)
+        .selectinload(PlannedMealCourse.planned_meal_recipes)
+    )
+
+
+def _meal_load():
+    return selectinload(PlannedMeal.courses).selectinload(
+        PlannedMealCourse.planned_meal_recipes
+    )
 
 
 def _add_planned_meal_courses(
@@ -75,8 +90,9 @@ def create_meal_plan_week(
         _add_planned_meal_courses(db, meal, meal_in.courses)
 
     db.commit()
-    db.refresh(plan)
-    return plan
+    return db.execute(
+        select(MealPlanWeek).where(MealPlanWeek.id == plan.id).options(_plan_load())
+    ).scalar_one()
 
 
 @router.get("", response_model=List[MealPlanWeekRead])
@@ -84,13 +100,14 @@ def list_meal_plans(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[MealPlanWeek]:
-    plans = (
-        db.query(MealPlanWeek)
-        .filter(MealPlanWeek.user_id == current_user.id)
-        .order_by(MealPlanWeek.start_date.desc())
-        .all()
+    return list(
+        db.execute(
+            select(MealPlanWeek)
+            .where(MealPlanWeek.user_id == current_user.id)
+            .options(_plan_load())
+            .order_by(MealPlanWeek.start_date.desc())
+        ).scalars().all()
     )
-    return plans
 
 
 @router.get("/{plan_id}", response_model=MealPlanWeekRead)
@@ -99,12 +116,12 @@ def get_meal_plan(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> MealPlanWeek:
-    plan = (
-        db.query(MealPlanWeek)
-        .filter(MealPlanWeek.id == plan_id, MealPlanWeek.user_id == current_user.id)
-        .first()
-    )
-    if not plan:
+    plan = db.execute(
+        select(MealPlanWeek)
+        .where(MealPlanWeek.id == plan_id, MealPlanWeek.user_id == current_user.id)
+        .options(_plan_load())
+    ).scalar_one_or_none()
+    if plan is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meal plan not found")
     return plan
 
@@ -116,12 +133,12 @@ def update_meal_plan(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> MealPlanWeek:
-    plan = (
-        db.query(MealPlanWeek)
-        .filter(MealPlanWeek.id == plan_id, MealPlanWeek.user_id == current_user.id)
-        .first()
-    )
-    if not plan:
+    plan = db.execute(
+        select(MealPlanWeek).where(
+            MealPlanWeek.id == plan_id, MealPlanWeek.user_id == current_user.id
+        )
+    ).scalar_one_or_none()
+    if plan is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meal plan not found")
 
     if plan_in.title is not None:
@@ -145,8 +162,9 @@ def update_meal_plan(
             _add_planned_meal_courses(db, meal, meal_in.courses)
 
     db.commit()
-    db.refresh(plan)
-    return plan
+    return db.execute(
+        select(MealPlanWeek).where(MealPlanWeek.id == plan.id).options(_plan_load())
+    ).scalar_one()
 
 
 @router.post("/{plan_id}/generate-recipes", response_model=MealPlanWeekRead)
@@ -176,7 +194,7 @@ def patch_planned_meal(
             PlannedMeal.meal_plan_week_id == plan_id,
             MealPlanWeek.user_id == current_user.id,
         )
-        .options(selectinload(PlannedMeal.courses))
+        .options(_meal_load())
     )
     meal = db.execute(stmt).scalar_one_or_none()
     if meal is None:
@@ -197,10 +215,7 @@ def patch_planned_meal(
         recipe_service.sync_planned_meal_courses(db, ai_client, current_user, meal, body.courses)
 
     db.commit()
-    meal = db.execute(
-        select(PlannedMeal)
-        .where(PlannedMeal.id == meal_id)
-        .options(selectinload(PlannedMeal.courses))
+    return db.execute(
+        select(PlannedMeal).where(PlannedMeal.id == meal_id).options(_meal_load())
     ).scalar_one()
-    return meal
 

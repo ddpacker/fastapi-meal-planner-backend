@@ -32,10 +32,10 @@ app/
     base_class.py  # declarative Base
     base.py        # Base + all model imports (for Alembic env.py)
     session.py     # engine, SessionLocal, get_db dependency
-  models/          # SQLAlchemy models: chat, grocery, meal_plan, nutrition, recipe, user
+  models/          # SQLAlchemy models: chat, grocery, ingredient, meal_plan, nutrition, recipe, user
   schemas/         # Pydantic v2 schemas
   routers/         # auth, chat, grocery, meal_plans, recipes, users
-  services/        # recipe_service, chat_service, grocery_service, nutrition_service, google_oidc, token_revocation
+  services/        # recipe_service, chat_service, grocery_service, ingredient_service, nutrition_service, google_oidc, token_revocation
   clients/
     base.py               # ABC defining generate_recipes / chat_modify contract
     anthropic_client.py   # Anthropic concrete implementation

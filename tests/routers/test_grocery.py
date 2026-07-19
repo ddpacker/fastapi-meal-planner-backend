@@ -15,6 +15,7 @@ from app.models.meal_plan import (
 )
 from app.models.recipe import Recipe, RecipeIngredient
 from app.models.user import User
+from app.services.ingredient_service import get_or_create as get_or_create_ingredient
 
 
 @pytest.fixture()
@@ -57,19 +58,18 @@ def plan_with_linked_recipes(db, user: User) -> MealPlanWeek:
     recipe = Recipe(
         user_id=user.id,
         title="R1",
-        instructions="i",
         servings=2,
         source_model="test",
     )
     db.add(recipe)
     db.flush()
+    onion = get_or_create_ingredient(db, "Onion", "produce")
     db.add(
         RecipeIngredient(
             recipe_id=recipe.id,
-            name="Onion",
+            ingredient_id=onion.id,
             quantity=1,
             unit="piece",
-            category="produce",
         )
     )
     db.add(
@@ -99,7 +99,7 @@ def test_post_grocery_list_returns_201_with_items(
     assert data["meal_plan_week_id"] == plan_with_linked_recipes.id
     assert "Grocery List for Grocery HTTP Week" in (data["title"] or "")
     assert len(data["items"]) == 1
-    assert data["items"][0]["name"] == "Onion"
+    assert data["items"][0]["name"] == "onion"
     assert data["items"][0]["total_quantity"] == 1.0
     assert data["items"][0]["unit"] == "piece"
 

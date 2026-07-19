@@ -8,10 +8,96 @@ from fastapi import HTTPException, status
 from app.clients.base import AIClientBase, MealGenerationMeal
 from app.config import get_settings
 from app.models.meal_plan import MealPlanWeek, PlannedMeal, PlannedMealCourse, PlannedMealRecipe
-from app.models.recipe import Recipe, RecipeIngredient
+from app.models.recipe import Recipe, RecipeIngredient, RecipeStep
 from app.models.user import User
 from app.schemas.meal_plans import PlannedMealCourseUpsert
-from app.schemas.recipes import RecipeCreate
+from app.schemas.recipes import RecipeCreate, RecipeUpdate
+from app.services.ingredient_service import get_or_create as get_or_create_ingredient
+
+
+def list_recipes(
+    db: Session,
+    user: User,
+    *,
+    search: str | None = None,
+    source_model: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> list[Recipe]:
+    stmt = select(Recipe).where(Recipe.user_id == user.id)
+    if search:
+        stmt = stmt.where(Recipe.title.ilike(f"%{search}%"))
+    if source_model is not None:
+        stmt = stmt.where(Recipe.source_model == source_model)
+    stmt = (
+        stmt.order_by(Recipe.created_at.desc(), Recipe.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    return list(db.execute(stmt).scalars().all())
+
+
+def get_owned_recipe(db: Session, user: User, recipe_id: int) -> Recipe:
+    recipe = db.execute(
+        select(Recipe)
+        .where(Recipe.id == recipe_id, Recipe.user_id == user.id)
+        .options(
+            selectinload(Recipe.steps),
+            selectinload(Recipe.ingredients).selectinload(RecipeIngredient.ingredient),
+        )
+    ).scalar_one_or_none()
+    if recipe is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipe not found")
+    return recipe
+
+
+def update_recipe(
+    db: Session,
+    user: User,
+    recipe_id: int,
+    recipe_in: RecipeUpdate,
+) -> Recipe:
+    recipe = get_owned_recipe(db, user, recipe_id)
+    recipe.title = recipe_in.title
+    recipe.servings = recipe_in.servings
+
+    for step in list(recipe.steps):
+        db.delete(step)
+    for ing in list(recipe.ingredients):
+        db.delete(ing)
+    db.flush()
+
+    for step in recipe_in.steps:
+        db.add(
+            RecipeStep(
+                recipe_id=recipe.id,
+                step_number=step.step_number,
+                text=step.text,
+            )
+        )
+    for ing in recipe_in.ingredients:
+        catalog = get_or_create_ingredient(db, ing.name, ing.category)
+        db.add(
+            RecipeIngredient(
+                recipe_id=recipe.id,
+                ingredient_id=catalog.id,
+                quantity=ing.quantity,
+                unit=ing.unit,
+            )
+        )
+
+    db.commit()
+    return get_owned_recipe(db, user, recipe.id)
+
+
+def delete_recipe(db: Session, user: User, recipe_id: int) -> None:
+    recipe = db.execute(
+        select(Recipe).where(Recipe.id == recipe_id, Recipe.user_id == user.id)
+    ).scalar_one_or_none()
+    if recipe is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipe not found")
+    db.delete(recipe)
+    db.commit()
 
 
 def _persist_course_recipe(
@@ -32,21 +118,29 @@ def _persist_course_recipe(
     recipe = Recipe(
         user_id=user.id,
         title=recipe_create.title,
-        instructions=recipe_create.instructions,
         servings=recipe_create.servings,
         source_model=provider_label,
     )
     db.add(recipe)
     db.flush()
 
+    for step in recipe_create.steps:
+        db.add(
+            RecipeStep(
+                recipe_id=recipe.id,
+                step_number=step.step_number,
+                text=step.text,
+            )
+        )
+
     for ing in recipe_create.ingredients:
+        catalog = get_or_create_ingredient(db, ing.name, ing.category)
         db.add(
             RecipeIngredient(
                 recipe_id=recipe.id,
-                name=ing.name,
+                ingredient_id=catalog.id,
                 quantity=ing.quantity,
                 unit=ing.unit,
-                category=ing.category,
             )
         )
 
@@ -246,7 +340,9 @@ def generate_recipes_for_plan(
         select(MealPlanWeek)
         .where(MealPlanWeek.id == plan_id)
         .options(
-            selectinload(MealPlanWeek.planned_meals).selectinload(PlannedMeal.courses),
+            selectinload(MealPlanWeek.planned_meals)
+            .selectinload(PlannedMeal.courses)
+            .selectinload(PlannedMealCourse.planned_meal_recipes),
         )
     ).scalar_one()
 

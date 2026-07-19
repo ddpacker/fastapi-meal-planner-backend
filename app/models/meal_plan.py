@@ -98,6 +98,12 @@ class PlannedMealCourse(Base):
         cascade="all, delete-orphan",
     )
 
+    @property
+    def recipe_id(self) -> int | None:
+        if not self.planned_meal_recipes:
+            return None
+        return self.planned_meal_recipes[0].recipe_id
+
 
 class PlannedMealRecipe(Base):
     __tablename__ = "planned_meal_recipes"

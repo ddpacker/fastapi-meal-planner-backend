@@ -3,7 +3,11 @@
     "title": "Chicken Tacos",
     "role": "entree",
     "servings": 4,
-    "instructions": "Season chicken with cumin, chili powder, salt, and pepper. Cook in a skillet over medium-high heat for 6-7 minutes per side until cooked through. Slice and serve in warmed tortillas with toppings.",
+    "steps": [
+      {"step_number": 1, "text": "Season chicken with cumin, chili powder, salt, and pepper."},
+      {"step_number": 2, "text": "Cook in a skillet over medium-high heat for 6-7 minutes per side until cooked through."},
+      {"step_number": 3, "text": "Slice and serve in warmed tortillas with toppings."}
+    ],
     "ingredients": [
       {"name": "chicken breast", "quantity": 500, "unit": "gram", "category": "meat"},
       {"name": "flour tortilla", "quantity": 8, "unit": "piece", "category": "grains"},
@@ -16,7 +20,11 @@
     "title": "Vegetable Stir Fry",
     "role": "entree",
     "servings": 2,
-    "instructions": "Heat oil in a wok over high heat. Add garlic and ginger, cook 30 seconds. Add vegetables and stir fry for 5-7 minutes. Add soy sauce and sesame oil, toss to combine. Serve over rice.",
+    "steps": [
+      {"step_number": 1, "text": "Heat oil in a wok over high heat. Add garlic and ginger, cook 30 seconds."},
+      {"step_number": 2, "text": "Add vegetables and stir fry for 5-7 minutes."},
+      {"step_number": 3, "text": "Add soy sauce and sesame oil, toss to combine. Serve over rice."}
+    ],
     "ingredients": [
       {"name": "broccoli floret", "quantity": 200, "unit": "gram", "category": "produce"},
       {"name": "bell pepper", "quantity": 1, "unit": "piece", "category": "produce"},
@@ -29,7 +37,11 @@
     "title": "Simple Green Salad",
     "role": "side",
     "servings": 4,
-    "instructions": "Wash and dry greens. Whisk olive oil, lemon juice, salt, and pepper. Toss greens with dressing and serve immediately.",
+    "steps": [
+      {"step_number": 1, "text": "Wash and dry greens."},
+      {"step_number": 2, "text": "Whisk olive oil, lemon juice, salt, and pepper."},
+      {"step_number": 3, "text": "Toss greens with dressing and serve immediately."}
+    ],
     "ingredients": [
       {"name": "mixed green", "quantity": 200, "unit": "gram", "category": "produce"},
       {"name": "olive oil", "quantity": 30, "unit": "millilitre", "category": "oils"},

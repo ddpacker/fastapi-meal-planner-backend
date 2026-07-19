@@ -7,8 +7,9 @@ from app.core.security import create_access_token
 from app.db.session import get_db
 from app.main import app
 from app.models.chat import ChatSession
-from app.models.recipe import Recipe, RecipeIngredient
+from app.models.recipe import Recipe, RecipeIngredient, RecipeStep
 from app.models.user import User
+from app.services.ingredient_service import get_or_create as get_or_create_ingredient
 
 
 @pytest.fixture()
@@ -39,19 +40,25 @@ def recipe_and_session(db, user: User) -> tuple[Recipe, ChatSession]:
     recipe = Recipe(
         user_id=user.id,
         title="Test Recipe",
-        instructions="Do the thing.",
         servings=2,
         source_model="test",
     )
     db.add(recipe)
     db.flush()
     db.add(
+        RecipeStep(
+            recipe_id=recipe.id,
+            step_number=1,
+            text="Do the thing.",
+        )
+    )
+    catalog = get_or_create_ingredient(db, "salt", "spices")
+    db.add(
         RecipeIngredient(
             recipe_id=recipe.id,
-            name="salt",
+            ingredient_id=catalog.id,
             quantity=1,
             unit="tsp",
-            category="spices",
         )
     )
     sess = ChatSession(recipe_id=recipe.id, user_id=user.id, title=recipe.title)

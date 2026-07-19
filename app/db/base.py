@@ -7,7 +7,8 @@ from app.models.user import User
 from app.models.user_preferences import UserPreferences
 from app.models.revoked_token import RevokedToken
 from app.models.meal_plan import MealPlanWeek, PlannedMeal, PlannedMealCourse, PlannedMealRecipe
-from app.models.recipe import Recipe, RecipeIngredient
+from app.models.ingredient import Ingredient
+from app.models.recipe import Recipe, RecipeIngredient, RecipeStep
 from app.models.grocery import GroceryList, GroceryItem
 from app.models.chat import ChatSession, ChatMessage
 from app.models.nutrition import NutritionInfo
@@ -20,7 +21,9 @@ __all__ = [
     "MealPlanWeek",
     "PlannedMeal",
     "PlannedMealCourse",
+    "Ingredient",
     "Recipe",
+    "RecipeStep",
     "RecipeIngredient",
     "GroceryList",
     "GroceryItem",

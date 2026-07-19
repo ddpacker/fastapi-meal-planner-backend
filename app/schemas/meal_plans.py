@@ -23,6 +23,7 @@ class PlannedMealCourseRead(BaseModel):
     id: int
     role: MealCourseRole
     description: Optional[str] = None
+    recipe_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
 

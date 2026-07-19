@@ -34,7 +34,9 @@ def generate_grocery_list(plan_id: int, db: Session, user: User) -> GroceryList:
         )
 
     ingredients = db.execute(
-        select(RecipeIngredient).where(RecipeIngredient.recipe_id.in_(recipe_ids))
+        select(RecipeIngredient)
+        .where(RecipeIngredient.recipe_id.in_(recipe_ids))
+        .options(selectinload(RecipeIngredient.ingredient))
     ).scalars().all()
 
     if not ingredients:
@@ -48,11 +50,11 @@ def generate_grocery_list(plan_id: int, db: Session, user: User) -> GroceryList:
     )
 
     for ingr in ingredients:
-        key = (ingr.name.lower().strip(), ingr.unit)
+        key = (ingr.ingredient.name, ingr.unit)
         current_qty, current_cat = aggregated[key]
         line_qty = float(ingr.quantity) if ingr.quantity is not None else 0.0
         new_qty = current_qty + line_qty
-        category = current_cat or ingr.category
+        category = current_cat or ingr.ingredient.category
         aggregated[key] = (new_qty, category)
 
     grocery_list = GroceryList(
@@ -62,16 +64,11 @@ def generate_grocery_list(plan_id: int, db: Session, user: User) -> GroceryList:
     db.add(grocery_list)
     db.flush()
 
-    for (name_lower, unit), (total_qty, category) in aggregated.items():
-        original_name = next(
-            (ingr.name for ingr in ingredients if ingr.name.lower().strip() == name_lower),
-            name_lower.title(),
-        )
-
+    for (name, unit), (total_qty, category) in aggregated.items():
         db.add(
             GroceryItem(
                 grocery_list_id=grocery_list.id,
-                name=original_name,
+                name=name,
                 total_quantity=total_qty if total_qty > 0 else None,
                 unit=unit,
                 category=category,

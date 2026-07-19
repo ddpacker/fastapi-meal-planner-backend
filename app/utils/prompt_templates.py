@@ -55,4 +55,4 @@ Current recipe:
 Conversation so far:
 {history_text}User: {user_message}
 
-Reply conversationally. If the user requests structural changes to the recipe (ingredients, quantities, instructions, or servings), provide a revised recipe. If no structural changes are needed, set revised_recipe to null."""
+Reply conversationally. If the user requests structural changes to the recipe (ingredients, quantities, steps, or servings), provide a revised recipe. If no structural changes are needed, set revised_recipe to null."""
