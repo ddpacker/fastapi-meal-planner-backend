@@ -10,7 +10,7 @@ _INGREDIENT_SCHEMA = {
     },
     "required": ["name", "quantity", "unit", "category"],
     "preparation": {
-        "type": ["string", "null"]
+        "type": ["string", "null"],
         "description": "Optional cooking state or preparation method that modifies the base ingredient (e.g. 'cooked', 'day-old', 'finely diced'). Omit or null if not applicable. The name field must be the base food only."
     },
 }
