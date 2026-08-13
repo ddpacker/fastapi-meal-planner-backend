@@ -77,20 +77,15 @@ todos:
       - setup-jwt
 ---
 
-## Roadmap
+## Conventions
 
-### Auth implementation
+Cross-cutting rules live in [_conventions.md](_conventions.md). Auth is the mechanism behind
+[CONV-AUTH-OWNERSHIP](_conventions.md#conv-auth-ownership) — `get_current_user` resolves the
+`current_user` that every other plan filters by.
 
-| Status | Task | Key files |
-| ------ | ---- | --------- |
-| ✅ Done | JWT issuance + validation + OAuth2 bearer scheme | `app/core/security.py`, `app/core/deps.py` |
-| ✅ Done | Email/password register + login endpoints | `app/routers/auth.py` |
-| ✅ Done | User Pydantic schemas | `app/schemas/auth.py` |
-| ✅ Done | User SQLAlchemy model + DB persistence | `app/models/user.py` |
-| ✅ Done | Google OIDC social login + `google_sub` column | `app/routers/auth.py`, `app/services/google_oidc.py`, Alembic `b0dc7aebe1e7` |
-| ✅ Done | Logout with JTI denylist (`revoked_tokens` table) | `app/routers/auth.py`, `app/core/security.py`, `app/core/deps.py`, `app/services/token_revocation.py` |
-| ✅ Done | Dedicated auth tests | `tests/routers/test_auth.py`, `tests/core/test_security.py` |
-| ✅ Done | CORS middleware + allowed origins config | `main.py`, `app/config.py` |
+Task status is tracked in the `todos:` frontmatter above; per-task key files are named in each
+todo's `content`.
+
 ---
 
 ## Implementation notes

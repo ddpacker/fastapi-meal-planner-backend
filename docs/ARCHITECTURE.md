@@ -77,16 +77,18 @@ flowchart TD
     - Supports up to one recipe per course slot. Default slot is `entree`.
 
 - **Ingredients & grocery items**
-  - `Ingredient` – global shared catalog of ingredient identity (append-mostly).
-    - Fields: `id`, `name` (unique, normalized lowercase), `category`, timestamps.
-  - `RecipeIngredient` – association of a recipe to a catalog ingredient with per-use amount.
+  - `Ingredient` – global shared catalog of **canonical food identity**, deduplicated to base
+    form per [CONV-INGREDIENT-MODEL](plans/_conventions.md#conv-ingredient-model) (append-mostly).
+    - Fields: `id`, `name` (unique, singular, normalized lowercase base food — e.g. `jasmine rice`, not `cooked jasmine rice`), `category`, timestamps.
+  - `RecipeIngredient` – association of a recipe to a catalog ingredient with per-use amount and preparation.
     - Fields: `id`, `recipe_id`, `ingredient_id`, `quantity` (Numeric), `unit` (singular, metric).
-    - AI is instructed to output singular names and metric units for clean USDA lookups.
+    - _Target (not yet built):_ optional free-text `preparation` column ("cooked", "day-old", "diced"); lines differing only in preparation share one `Ingredient` row. See [CONV-INGREDIENT-MODEL](plans/_conventions.md#conv-ingredient-model).
+    - AI is instructed to output singular base names and metric units for clean USDA lookups; the service collapses to canonical identity on write.
   - `GroceryList` – per-week grocery aggregation.
     - Fields: `id`, `meal_plan_week_id`, `title`, `notes`, timestamps.
   - `GroceryItem`
     - Fields: `id`, `grocery_list_id`, `name`, `total_quantity`, `unit`, `category`, `checked`.
-    - Still denormalized; intended to join the global catalog in a later pass.
+    - Still denormalized (free-text `name`). _Target per [CONV-INGREDIENT-MODEL](plans/_conventions.md#conv-ingredient-model):_ join the catalog on `ingredient_id` and aggregate on `ingredient_id` + `unit`, so collapsed identities sum into one item. Lands with the grocery service.
 
 - **Chat & AI interactions**
   - `ChatSession`
@@ -200,6 +202,8 @@ flowchart TD
   - `User` table with hashed passwords (e.g., `passlib`).
   - Dependency to resolve `current_user` from the token.
   - All meal/recipe/chat/grocery endpoints require `current_user` and filter data by `user_id`.
+    Ownership scoping (direct vs. joined `user_id`, 404-not-403) is specified once in
+    [CONV-AUTH-OWNERSHIP](plans/_conventions.md#conv-auth-ownership).
 - Ensure **AI provider credentials**, DB URL, and JWT secrets are taken from environment variables and not hard-coded.
 
 ## 8. Testing & observability

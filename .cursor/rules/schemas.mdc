@@ -31,6 +31,7 @@ class RecipeRead(BaseModel):
 - `*Create` — fields accepted on POST (no `id`, no timestamps).
 - `*Update` — fields accepted on PUT/PATCH (all fields `Optional`).
 - `*Read` — fields returned in responses (includes `id`, timestamps, nested reads).
+- `*SummaryRead` — lightweight list-endpoint variant that **omits nested children** (ingredients, steps, messages); full detail only via `GET /{id}`. See [`CONV-SUMMARY-SCHEMA`](../../docs/plans/_conventions.md#conv-summary-schema).
 
 ## Response format
 
@@ -39,6 +40,7 @@ class RecipeRead(BaseModel):
 - `404 Not Found` — `raise HTTPException(status_code=404, detail="...")`.
 - `422 Unprocessable Entity` — let Pydantic/FastAPI return automatically for validation errors.
 - No custom envelope wrappers — never `{"data": ..., "status": "ok"}`.
+- Paginated list endpoints follow [`CONV-PAGINATION`](../../docs/plans/_conventions.md#conv-pagination): `page`/`page_size` (default 20) for library collections, `offset`/`limit` (default 50) for message history.
 
 ## Security
 

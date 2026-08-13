@@ -20,6 +20,8 @@ alwaysApply: false
 
 ## Per-user data isolation
 
+> Canonical rule: [`CONV-AUTH-OWNERSHIP`](../../docs/plans/_conventions.md#conv-auth-ownership). The directives below are its code-level enforcement — keep them in sync with that source.
+
 - Filter **every** database query by `user_id == current_user.id`.
 - For nested resources (e.g., a `GroceryItem` belonging to a `GroceryList` belonging to a `MealPlanWeek`), join up to `MealPlanWeek.user_id` to enforce ownership.
 - Return 404 (not 403) when a resource exists but belongs to another user — do not leak existence.

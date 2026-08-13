@@ -22,6 +22,8 @@ alwaysApply: false
 
 ## AI client
 
+> Canonical rule: [`CONV-AI-CLIENT-INJECTION`](../../docs/plans/_conventions.md#conv-ai-client-injection) (tests run with `AI_PROVIDER=test`, assert on `recorded_calls`, never set `ANTHROPIC_API_KEY`).
+
 - **Never** make real AI API calls in tests.
 - Always inject `FakeClient` (the `AIClientBase` recording double) via FastAPI dependency override:
 

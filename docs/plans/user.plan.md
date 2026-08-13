@@ -56,14 +56,13 @@ todos:
       - user-delete
 ---
 
-## Roadmap
+## Conventions
 
-| Status | Task |
-|--------|------|
-| ✅ Done | GET /users/me + PATCH /users/me (email, password change) |
-| ✅ Done | User preferences (unit_system: metric/imperial) |
-| ✅ Done | DELETE /users/me with cascade verification |
-| ✅ Done | Tests |
+Cross-cutting rules this plan follows (see [_conventions.md](_conventions.md)):
+[CONV-METRIC-SINGULAR](_conventions.md#conv-metric-singular),
+[CONV-DELETE-CASCADE](_conventions.md#conv-delete-cascade).
+
+Task status is tracked in the `todos:` frontmatter above.
 
 ---
 
@@ -75,10 +74,9 @@ Never accept password_hash directly. Validate current_password via verify_passwo
 allowing an email or password change.
 
 ### Unit system convention
-The AI generation prompt (recipe_generation_prompt) must instruct the model to return all
-quantities in metric units (grams, ml, litre, etc.). unit_system stored in UserPreferences
-is purely a frontend display hint — the API always returns metric values. This also ensures
-USDA nutrition lookups (which expect per-100g) work without unit conversion.
+See [CONV-METRIC-SINGULAR](_conventions.md#conv-metric-singular). `unit_system` stored in
+UserPreferences is purely a frontend display hint — the API always returns metric values, so
+no backend conversion logic is needed.
 
 ### UserPreferences storage
 A separate UserPreferences table (one-to-one with User via user_id) is cleaner than a JSONB
@@ -86,6 +84,7 @@ column if preferences grow. Start with the table; add an Alembic migration.
 Fields: id, user_id (unique FK), unit_system (enum: metric/imperial, default metric).
 
 ### Cascade on DELETE /users/me
+Follows [CONV-DELETE-CASCADE](_conventions.md#conv-delete-cascade).
 SQLAlchemy cascade="all, delete-orphan" should already cover MealPlanWeek → PlannedMeal →
 PlannedMealRecipe and Recipe → RecipeIngredient → NutritionInfo chains via User relationships.
 Verify each relationship on the User model before relying on it. Return 404 if user is

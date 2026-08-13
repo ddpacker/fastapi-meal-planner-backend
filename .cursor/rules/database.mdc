@@ -34,8 +34,8 @@ user = db.query(User).filter(User.id == user_id).first()
 - Inherit from `Base` in `app/db/base_class.py`.
 - Always include `created_at` and `updated_at` with `server_default=func.now()`.
 - Use `DateTime(timezone=True)` for all timestamp columns.
-- Use `cascade="all, delete-orphan"` on all parent→child relationships.
-- Filter every query by `user_id` — no cross-user data leakage.
+- Use `cascade="all, delete-orphan"` on all parent→child relationships (see [`CONV-DELETE-CASCADE`](../../docs/plans/_conventions.md#conv-delete-cascade) for the delete-endpoint contract: 204 + rely on cascade + cascade test).
+- Filter every query by `user_id` — no cross-user data leakage (canonical: [`CONV-AUTH-OWNERSHIP`](../../docs/plans/_conventions.md#conv-auth-ownership)).
 
 ## Data relationships
 

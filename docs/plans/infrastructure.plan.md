@@ -95,21 +95,11 @@ todos:
       - deploy-aca
 ---
 
-## Roadmap
+## Conventions
 
-### Infrastructure
-
-| Status | Task |
-|--------|------|
-| ✅ Done | Local containerization (`Dockerfile`) |
-| ✅ Done | GitHub Actions OIDC — secretless Azure auth |
-| ✅ Done | VNet + subnets designed and documented |
-| ⏳ Pending | Provision Azure Container Registry |
-| ⏳ Pending | Deploy Azure Database for PostgreSQL with Private Endpoint |
-| ⏳ Pending | Configure Azure Key Vault with RBAC + Private Endpoint |
-| ⏳ Pending | Deploy Azure Container Apps within VNet |
-| ⏳ Pending | Full CI/CD GitHub Actions workflow (build → push → deploy) |
-| ⏳ Pending | Application Insights + Log Analytics + alerting |
+Cross-cutting rules live in [_conventions.md](_conventions.md); this plan is infrastructure
+only and doesn't consume the API-level conventions. Task status is tracked in the `todos:`
+frontmatter above.
 
 ---
 

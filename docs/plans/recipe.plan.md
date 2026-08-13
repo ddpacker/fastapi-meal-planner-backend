@@ -53,6 +53,22 @@ todos:
     dependencies:
       - recipe-crud
 
+  - id: ingredient-preparation-collapse
+    content: >
+      Extend the catalog to canonical-identity + preparation per CONV-INGREDIENT-MODEL.
+      Ingredient.name collapses to the base food ("jasmine rice", not "cooked jasmine rice");
+      preparation/state moves to a new nullable free-text RecipeIngredient.preparation column.
+      ingredient_service.get_or_create strips preparation/state words and singularizes before
+      upserting, so lines differing only in preparation reuse one Ingredient row. Alembic
+      migration: add preparation column, backfill by splitting existing preparation-specific
+      Ingredient names into base identity + per-line preparation. RecipeIngredientRead surfaces
+      preparation. Update ARCHITECTURE §3 (flip the "target" markers to current) as part of this.
+      Tests: "cooked jasmine rice" + "day-old jasmine rice" collapse to one Ingredient with
+      preparation captured per RecipeIngredient.
+    status: pending
+    dependencies:
+      - ingredient-catalog
+
   - id: recipe-search-and-filter
     content: >
       Add GET /recipes with pagination and filtering so users can browse their recipe library.
@@ -92,18 +108,17 @@ todos:
       - recipe-update-delete
 ---
 
-## Roadmap
+## Conventions
 
-| Status | Task |
-|--------|------|
-| ✅ Done | Recipe CRUD (create, get by id, get by meal) |
-| ✅ Done | AI recipe generation via generate_recipes_for_plan service |
-| ✅ Done | Chat session create/get/send wired to chat_service (see chat.plan.md) |
-| ✅ Done | **Refactor:** structured instructions → recipe_steps |
-| ✅ Done | **Refactor:** global Ingredient catalog + association RecipeIngredient |
-| ✅ Done | GET /recipes list endpoint with search + pagination |
-| ✅ Done | PUT /recipes/{id} and DELETE /recipes/{id} |
-| ✅ Done | Expanded router + service tests |
+Cross-cutting rules this plan follows (see [_conventions.md](_conventions.md)):
+[CONV-AUTH-OWNERSHIP](_conventions.md#conv-auth-ownership),
+[CONV-PAGINATION](_conventions.md#conv-pagination),
+[CONV-SUMMARY-SCHEMA](_conventions.md#conv-summary-schema),
+[CONV-METRIC-SINGULAR](_conventions.md#conv-metric-singular),
+[CONV-DELETE-CASCADE](_conventions.md#conv-delete-cascade),
+[CONV-INGREDIENT-MODEL](_conventions.md#conv-ingredient-model).
+
+Task status is tracked in the `todos:` frontmatter above.
 
 ---
 
@@ -137,8 +152,9 @@ todos:
 - Recipes are only deleted explicitly by the user (DELETE /recipes/{id}) or when the user
   account itself is deleted (cascade from User)
 - Chat revision updates the `Recipe` row in place (same id) — chat history is preserved
-- All queries filter by `user_id`; for PlannedMeal-linked resources, join up to MealPlanWeek.user_id
+- Authorization follows [CONV-AUTH-OWNERSHIP](_conventions.md#conv-auth-ownership)
+  (Recipe filters by `user_id`; PlannedMeal-linked resources join up to `MealPlanWeek.user_id`)
 
 ### RecipeSummaryRead schema (for list endpoint)
-Fields: id, title, servings, source_model, created_at. Omit steps and ingredients 
-to keep list responses light. Full details via GET /recipes/{id}.
+Per [CONV-SUMMARY-SCHEMA](_conventions.md#conv-summary-schema): fields id, title, servings,
+source_model, created_at. Steps and ingredients omitted; full details via GET /recipes/{id}.
