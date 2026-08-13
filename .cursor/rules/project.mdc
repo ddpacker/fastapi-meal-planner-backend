@@ -98,6 +98,29 @@ alembic/           # migrations only — no business logic
   - [README.md](README.md) — update tech stack section if it's a major dependency
 - **Plans:** Update `docs/plans/*.plan.md` as you work (not only on completion) — mark tasks done, add a `todos:` entry for new work, and note deviations. See "Conventions & plan governance" above for scope.
 
+## Commit messages
+
+Use Conventional Commits format on every commit:
+
+```
+type(optional-scope): short description
+
+Optional body.
+```
+
+Types: `feat` | `fix` | `docs` | `refactor` | `test` | `chore` | `perf` | `ci`
+
+- Subject line: imperative mood, lowercase after the colon, no trailing period, ≤72 chars.
+- Scope: the domain or module being changed (e.g. `recipe`, `grocery`, `auth`, `ingredient`).
+- Body: include only when the *why* is non-obvious from the diff. No "added X" restatements.
+
+Examples:
+```
+feat(ingredient): add preparation column to RecipeIngredient
+fix(grocery): key aggregation on ingredient_id instead of name
+refactor(ingredient): extract preparation-collapse normalizer
+```
+
 ## Do not
 
 - Do not add packages not in `pyproject.toml` without explicit instruction (`uv add <package>` to add).

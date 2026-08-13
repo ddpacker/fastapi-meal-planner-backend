@@ -12,6 +12,7 @@ from app.models.recipe import Recipe, RecipeIngredient, RecipeStep
 from app.models.user import User
 from app.schemas.meal_plans import PlannedMealCourseUpsert
 from app.schemas.recipes import RecipeCreate, RecipeUpdate
+from app.services.ingredient_service import extract_preparation
 from app.services.ingredient_service import get_or_create as get_or_create_ingredient
 
 
@@ -76,13 +77,15 @@ def update_recipe(
             )
         )
     for ing in recipe_in.ingredients:
-        catalog = get_or_create_ingredient(db, ing.name, ing.category)
+        base_name, preparation = extract_preparation(ing.name)
+        catalog = get_or_create_ingredient(db, base_name, ing.category)
         db.add(
             RecipeIngredient(
                 recipe_id=recipe.id,
                 ingredient_id=catalog.id,
                 quantity=ing.quantity,
                 unit=ing.unit,
+                preparation=preparation,
             )
         )
 
@@ -134,13 +137,15 @@ def _persist_course_recipe(
         )
 
     for ing in recipe_create.ingredients:
-        catalog = get_or_create_ingredient(db, ing.name, ing.category)
+        base_name, preparation = extract_preparation(ing.name)
+        catalog = get_or_create_ingredient(db, base_name, ing.category)
         db.add(
             RecipeIngredient(
                 recipe_id=recipe.id,
                 ingredient_id=catalog.id,
                 quantity=ing.quantity,
                 unit=ing.unit,
+                preparation=preparation,
             )
         )
 

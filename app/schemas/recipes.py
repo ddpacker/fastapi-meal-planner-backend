@@ -26,6 +26,7 @@ class RecipeIngredientCreate(BaseModel):
     quantity: Optional[float] = None
     unit: Optional[str] = None
     category: Optional[str] = None
+    preparation: Optional[str] = None
 
 
 class RecipeIngredientRead(BaseModel):
@@ -34,6 +35,7 @@ class RecipeIngredientRead(BaseModel):
     id: int
     quantity: Optional[float] = None
     unit: Optional[str] = None
+    preparation: Optional[str] = None
     ingredient: IngredientRead
 
 
