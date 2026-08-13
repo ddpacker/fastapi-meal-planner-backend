@@ -11,6 +11,7 @@ from app.models.user import User
 from app.schemas.nutrition import NutritionInfoRead
 from app.schemas.recipes import RecipeCreate, RecipeRead, RecipeSummaryRead, RecipeUpdate
 from app.services import recipe_service
+from app.services.ingredient_service import extract_preparation
 from app.services.ingredient_service import get_or_create as get_or_create_ingredient
 
 
@@ -41,13 +42,15 @@ def create_recipe(
         )
 
     for ingr_in in recipe_in.ingredients:
-        catalog = get_or_create_ingredient(db, ingr_in.name, ingr_in.category)
+        base_name, preparation = extract_preparation(ingr_in.name)
+        catalog = get_or_create_ingredient(db, base_name, ingr_in.category)
         db.add(
             RecipeIngredient(
                 recipe_id=recipe.id,
                 ingredient_id=catalog.id,
                 quantity=ingr_in.quantity,
                 unit=ingr_in.unit,
+                preparation=preparation,
             )
         )
 

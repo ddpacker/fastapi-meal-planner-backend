@@ -81,8 +81,7 @@ flowchart TD
     form per [CONV-INGREDIENT-MODEL](plans/_conventions.md#conv-ingredient-model) (append-mostly).
     - Fields: `id`, `name` (unique, singular, normalized lowercase base food — e.g. `jasmine rice`, not `cooked jasmine rice`), `category`, timestamps.
   - `RecipeIngredient` – association of a recipe to a catalog ingredient with per-use amount and preparation.
-    - Fields: `id`, `recipe_id`, `ingredient_id`, `quantity` (Numeric), `unit` (singular, metric).
-    - _Target (not yet built):_ optional free-text `preparation` column ("cooked", "day-old", "diced"); lines differing only in preparation share one `Ingredient` row. See [CONV-INGREDIENT-MODEL](plans/_conventions.md#conv-ingredient-model).
+    - Fields: `id`, `recipe_id`, `ingredient_id`, `quantity` (Numeric), `unit` (singular, metric), optional free-text `preparation` ("cooked", "day-old", "diced"); lines differing only in preparation share one `Ingredient` row. See [CONV-INGREDIENT-MODEL](plans/_conventions.md#conv-ingredient-model).
     - AI is instructed to output singular base names and metric units for clean USDA lookups; the service collapses to canonical identity on write.
   - `GroceryList` – per-week grocery aggregation.
     - Fields: `id`, `meal_plan_week_id`, `title`, `notes`, timestamps.

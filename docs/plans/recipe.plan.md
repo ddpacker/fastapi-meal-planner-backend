@@ -65,7 +65,10 @@ todos:
       preparation. Update ARCHITECTURE §3 (flip the "target" markers to current) as part of this.
       Tests: "cooked jasmine rice" + "day-old jasmine rice" collapse to one Ingredient with
       preparation captured per RecipeIngredient.
-    status: pending
+      Deviation: shipped as schema-only migration (nullable preparation, no historical
+      Ingredient-name backfill) plus write-path extract_preparation collapse; GroceryItem
+      marker left as target for grocery-idempotency.
+    status: done
     dependencies:
       - ingredient-catalog
 
