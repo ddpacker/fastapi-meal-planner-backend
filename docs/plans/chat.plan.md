@@ -61,15 +61,15 @@ todos:
       - chat-message-history
 ---
 
-## Roadmap
+## Conventions
 
-| Status | Task |
-|--------|------|
-| ✅ Done | Create session, get session with messages, send message via chat_service |
-| ⏳ Pending | GET /chat/recipes/{recipe_id}/chat-sessions (list sessions) |
-| ⏳ Pending | DELETE /chat/chat-sessions/{session_id} |
-| ⏳ Pending | Paginated message history |
-| ⏳ Pending | Expanded tests |
+Cross-cutting rules this plan follows (see [_conventions.md](_conventions.md)):
+[CONV-AUTH-OWNERSHIP](_conventions.md#conv-auth-ownership),
+[CONV-PAGINATION](_conventions.md#conv-pagination),
+[CONV-SUMMARY-SCHEMA](_conventions.md#conv-summary-schema),
+[CONV-DELETE-CASCADE](_conventions.md#conv-delete-cascade).
+
+Task status is tracked in the `todos:` frontmatter above.
 
 ---
 
@@ -80,8 +80,9 @@ todos:
 - `ChatMessage` — id, chat_session_id, role (user/assistant), content, created_at
 
 ### Authorization
-ChatSession has both recipe_id and user_id. Verify user_id == current_user.id directly
-rather than joining through Recipe, since user_id is already on the session row.
+Follows [CONV-AUTH-OWNERSHIP](_conventions.md#conv-auth-ownership). ChatSession carries both
+recipe_id and user_id, so verify `user_id == current_user.id` directly rather than joining
+through Recipe.
 
 ### Recipe revision behavior
 When chat_service applies a revised_recipe, it updates the Recipe row in place (same id).
@@ -89,8 +90,9 @@ The chat history remains intact and coherent — messages reference the session,
 snapshot. Deleting a chat session never reverts recipe changes already applied.
 
 ### ChatSessionSummaryRead schema
-Fields: id, title, created_at, message_count (derived via len() or subquery).
-Used for the list endpoint to avoid loading all messages for each session.
+Per [CONV-SUMMARY-SCHEMA](_conventions.md#conv-summary-schema): fields id, title, created_at,
+message_count (derived via len() or subquery). Used for the list endpoint to avoid loading all
+messages for each session.
 
 ### Message pagination
 offset/limit on GET /chat/chat-sessions/{session_id} applies to the messages subquery,

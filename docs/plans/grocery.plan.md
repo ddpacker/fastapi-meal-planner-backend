@@ -2,9 +2,9 @@
 name: grocery
 overview: >
   Grocery list generation, management, and item tracking. grocery_service aggregates 
-  RecipeIngredients from all recipes in a meal plan, normalizes them by (name, unit), 
-  and persists a GroceryList with GroceryItems. Users can then check off items and 
-  adjust quantities as they shop.
+  RecipeIngredients from all recipes in a meal plan, collapsing by canonical ingredient 
+  identity + unit per CONV-INGREDIENT-MODEL, and persists a GroceryList with GroceryItems. 
+  Users can then check off items and adjust quantities as they shop.
 todos:
   - id: grocery-generation
     content: >
@@ -72,16 +72,15 @@ todos:
       - grocery-list-export
 ---
 
-## Roadmap
+## Conventions
 
-| Status | Task |
-|--------|------|
-| ✅ Done | POST generate grocery list wired to grocery_service |
-| ✅ Done | GET list with items, PATCH item (checked, quantity) |
-| ⏳ Pending | Idempotent regeneration (atomic delete + recreate) |
-| ⏳ Pending | Manual add/remove individual items |
-| ⏳ Pending | Export endpoint (grouped plain-text/markdown) |
-| ⏳ Pending | Expanded tests |
+Cross-cutting rules this plan follows (see [_conventions.md](_conventions.md)):
+[CONV-AUTH-OWNERSHIP](_conventions.md#conv-auth-ownership),
+[CONV-CATEGORY-ENUM](_conventions.md#conv-category-enum),
+[CONV-DELETE-CASCADE](_conventions.md#conv-delete-cascade),
+[CONV-INGREDIENT-MODEL](_conventions.md#conv-ingredient-model).
+
+Task status is tracked in the `todos:` frontmatter above.
 
 ---
 
@@ -89,22 +88,27 @@ todos:
 
 ### Models involved
 - `GroceryList` — id, meal_plan_week_id, title, notes, timestamps
-- `GroceryItem` — id, grocery_list_id, name, total_quantity (Numeric), unit, category, checked
+- `GroceryItem` — id, grocery_list_id, name, total_quantity (Numeric), unit, category, checked.
+  _Target per [CONV-INGREDIENT-MODEL](_conventions.md#conv-ingredient-model):_ carry
+  `ingredient_id` (catalog FK) instead of free-text `name`; lands with the catalog join below.
 
 ### Aggregation logic (in grocery_service)
-Group RecipeIngredients by `(name.strip().lower(), unit.strip().lower())`.
-Sum `quantity` values (Numeric addition). Assign category from the most common category 
-value in the group, or "other" if missing.
+Category and name come from the joined catalog row (`RecipeIngredient.ingredient`), not from
+`RecipeIngredient` — the name/category columns moved to `Ingredient` in #28. Sum `quantity`
+(Numeric) per group. _Target per [CONV-INGREDIENT-MODEL](_conventions.md#conv-ingredient-model):_
+key the aggregation on `(ingredient_id, unit)` rather than `(ingredient.name, unit)`, so
+collapsed identities sum cleanly regardless of surface name.
 
 ### Category normalization
-Current categories derived from RecipeIngredient.category strings set by AI. Consider 
-a canonical set (produce, dairy, meat, pantry, frozen, other) enforced at service level 
-to make export grouping consistent.
+Category is a property of the catalog `Ingredient` row (per
+[CONV-INGREDIENT-MODEL](_conventions.md#conv-ingredient-model)), normalized to the canonical
+set in [CONV-CATEGORY-ENUM](_conventions.md#conv-category-enum) at the service level so export
+grouping stays consistent.
 
 ### Authorization for nested resources
-GroceryItem does not store user_id directly. Verify ownership by joining:
-GroceryItem → GroceryList → MealPlanWeek → user_id == current_user.id.
-Return 404 on mismatch.
+Follows [CONV-AUTH-OWNERSHIP](_conventions.md#conv-auth-ownership). GroceryItem stores no
+`user_id`, so join up: GroceryItem → GroceryList → MealPlanWeek → `user_id`. Return 404 on
+mismatch.
 
 ### Idempotent regeneration transaction
 Use a single DB transaction: delete existing GroceryList (cascade removes items), 

@@ -8,6 +8,35 @@ alwaysApply: true
 
 FastAPI + PostgreSQL backend for a weekly meal planning assistant. A provider-agnostic AI client layer (Python ABC) drives recipe generation and chat refinement. No frontend — pure JSON API.
 
+## Cross-cutting conventions (source of truth: docs/plans/_conventions.md)
+
+Shared decisions that span domains live once in [`docs/plans/_conventions.md`](../../docs/plans/_conventions.md), each with a stable ID. The rules below and the domain plans reference them by ID rather than restating — when a shared decision changes, edit it there, not in each rule:
+
+- `CONV-AUTH-OWNERSHIP` — per-user data isolation, 404-not-403 (see security.mdc, database.mdc)
+- `CONV-AI-CLIENT-INJECTION` — provider abstraction + no-content logging (see ai-integration.mdc, testing.mdc)
+- `CONV-METRIC-SINGULAR` — singular ingredient/unit names, metric quantities (see ai-integration.mdc)
+- `CONV-DELETE-CASCADE` — 204 + DB cascade + cascade test (see database.mdc)
+- `CONV-SUMMARY-SCHEMA` / `CONV-PAGINATION` — list-endpoint response shape + paging (see schemas.mdc)
+- `CONV-CATEGORY-ENUM` — canonical ingredient/grocery categories
+- `CONV-INGREDIENT-MODEL` — canonical ingredient identity; preparation lives on the recipe association (see database.mdc)
+
+## Documentation map (where a fact belongs)
+
+Each doc answers one question, and a fact has **exactly one home** — everywhere else references it by link or `CONV-*` ID. Before writing a fact, check whether it already lives somewhere; if so, link instead of restating.
+
+- **What the system *is*** — current data model, endpoints, data flow → [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md). Update it when the *built reality* changes; it is the source of truth for current shape, not for rules or plans.
+- **A rule that spans domains** → a `CONV-*` in [`docs/plans/_conventions.md`](../../docs/plans/_conventions.md).
+- **Work to do, and *why* an approach was chosen, in one domain** → that domain's [`docs/plans/*.plan.md`](../../docs/plans) (`todos:` frontmatter = live status; body = rationale).
+- **How to write code in this repo** → the `.cursor/rules/*.mdc` files (imperative, code-level enforcement of the above).
+
+A plan must never be the *only* place a current fact lives — if it is, that fact belongs in ARCHITECTURE.md or a `CONV-*`. Truth flows toward ARCHITECTURE + conventions + code; plans hold work and rationale, then go quiet once their domain is built.
+
+## Conventions & plan governance
+
+- Reference `_conventions.md` rules by their `CONV-*` ID. **Never edit `_conventions.md` as a side effect** of another task.
+- If a change would contradict a `CONV-*`, **stop and ask** whether to change the convention or the code — do not silently reconcile either side. A convention change is its own dedicated change and must update every plan that references the ID (and the counterpart `react-meal-planner-client` repo when the decision is shared, e.g. categories, metric units, summary/detail split).
+- When a request adds a capability or changes the approach relative to the relevant `docs/plans/*.plan.md`, update that plan's `todos:` frontmatter **as part of the task** — a new `todos:` entry for new work, or a deviation note on the affected todo. Skip this for trivial one-offs (renames, small refactors) that don't change scope or decisions.
+
 ## Stack (source of truth: pyproject.toml)
 
 - Python 3.12
@@ -67,7 +96,7 @@ alembic/           # migrations only — no business logic
 - **New Dependencies:** If adding packages via `uv add`, update:
   - [docs/SETUP.md](docs/SETUP.md) — add to `.env` template if new env vars required
   - [README.md](README.md) — update tech stack section if it's a major dependency
-- **Plans:** Update `docs/plans/*.plan.md` to mark tasks completed and note any deviations.
+- **Plans:** Update `docs/plans/*.plan.md` as you work (not only on completion) — mark tasks done, add a `todos:` entry for new work, and note deviations. See "Conventions & plan governance" above for scope.
 
 ## Do not
 

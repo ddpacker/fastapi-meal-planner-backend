@@ -67,15 +67,13 @@ todos:
       - nutrition-auto-generate
 ---
 
-## Roadmap
+## Conventions
 
-| Status | Task |
-|--------|------|
-| ✅ Done | NutritionInfo model, schemas, and placeholder endpoints |
-| ⏳ Pending | usda_client.py — USDA FoodData Central lookup with DB cache |
-| ⏳ Pending | nutrition_service.py — aggregate per-ingredient macros, upsert NutritionInfo |
-| ⏳ Pending | Optional auto-generation during recipe generation |
-| ⏳ Pending | Tests (USDA mock, cache hit, null unmatched, router) |
+Cross-cutting rules this plan follows (see [_conventions.md](_conventions.md)):
+[CONV-AUTH-OWNERSHIP](_conventions.md#conv-auth-ownership),
+[CONV-METRIC-SINGULAR](_conventions.md#conv-metric-singular).
+
+Task status is tracked in the `todos:` frontmatter above.
 
 ---
 
@@ -92,7 +90,9 @@ Endpoint: GET /foods/search?query={ingredient_name}&api_key={USDA_API_KEY}
 DEMO_KEY works for development (1000 req/hr per IP). Register for a free key for production
 and add USDA_API_KEY to config.py and environment variables.
 USDA returns nutrients per 100g — scale by (quantity_in_grams / 100).
-Ingredient names should be singular (enforced by recipe generation prompt) for better match rate.
+Ingredient names arrive singular and quantities metric per
+[CONV-METRIC-SINGULAR](_conventions.md#conv-metric-singular), which is what makes the per-100g
+scaling and USDA match rate work without unit conversion.
 
 ### FoodNutritionCache table
 Columns: id, name (unique, indexed), nutrient_data_json, fetched_at.

@@ -133,21 +133,15 @@ todos:
       - prompt-templates
 ---
 
-## Roadmap
+## Conventions
 
-### AI connector implementation
+This plan defines the AI-integration contract that
+[CONV-AI-CLIENT-INJECTION](_conventions.md#conv-ai-client-injection) and
+[CONV-METRIC-SINGULAR](_conventions.md#conv-metric-singular) codify for the rest of the plans;
+see [_conventions.md](_conventions.md).
 
-| Status | Task | Key files |
-|--------|------|-----------|
-| ✅ Done | AI client ABC | `app/clients/base.py` |
-| ✅ Done | FakeClient (recording test double) | `app/clients/fake.py`, `tests/fixtures/sample_recipes.json` |
-| ✅ Done | AnthropicClient (concrete provider) | `app/clients/anthropic_client.py` |
-| ✅ Done | Prompt templates | `app/utils/prompt_templates.py` |
-| ✅ Done | Client factory + settings wiring | `app/clients/factory.py`, `app/config.py` |
-| ✅ Done | Recipe service + generate-recipes endpoint | `app/services/recipe_service.py`, `app/routers/meal_plans.py` |
-| ✅ Done | Chat service + messages endpoint | `app/services/chat_service.py`, `app/routers/chat.py` |
-| ✅ Done | Extract grocery service | `app/services/grocery_service.py`, `app/routers/grocery.py` |
-| ✅ Done | Normalize ingredient/unit output to singular | `app/utils/prompt_templates.py`, `tests/fixtures/sample_recipes.json` |
+Task status is tracked in the `todos:` frontmatter above; per-task key files are named in each
+todo's `content`.
 
 ---
 
@@ -238,6 +232,8 @@ def my_endpoint(ai_client: AIClientBase = Depends(get_ai_client), ...):
 ```
 
 ### Testing
+
+Follows [CONV-AI-CLIENT-INJECTION](_conventions.md#conv-ai-client-injection):
 
 - Always use `AI_PROVIDER=test` in tests (or override `get_ai_client` dependency).
 - Assert on `fake.recorded_calls` to verify prompt content.

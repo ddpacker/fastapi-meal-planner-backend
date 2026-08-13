@@ -118,19 +118,14 @@ todos:
       - meal-plan-summary
 ---
 
-## Roadmap
+## Conventions
 
-| Status | Task |
-|--------|------|
-| ✅ Done | MealPlanWeek + PlannedMeal CRUD (create, list, get, update) |
-| ✅ Done | POST /generate-recipes trigger wired to recipe_service |
-| ✅ Done | MealCourseRole enum + PlannedMealCourse table + migration |
-| ✅ Done | `generate_recipes()` per-course signature + prompt + fixtures |
-| ✅ Done | Course edit: add/remove single course recipes without full regeneration |
-| ✅ Done | PATCH individual PlannedMeal (status + name + courses) |
-| ⏳ Pending | DELETE /meal-plans/{id} with cascade verification |
-| ⏳ Pending | MealPlanWeekRead summary fields (meal_count, has_grocery_list) |
-| ⏳ Pending | Expanded tests for new endpoints |
+Cross-cutting rules this plan follows (see [_conventions.md](_conventions.md)):
+[CONV-AUTH-OWNERSHIP](_conventions.md#conv-auth-ownership),
+[CONV-SUMMARY-SCHEMA](_conventions.md#conv-summary-schema),
+[CONV-DELETE-CASCADE](_conventions.md#conv-delete-cascade).
+
+Task status is tracked in the `todos:` frontmatter above.
 
 ---
 
@@ -153,8 +148,9 @@ wants to omit from grocery generation.
 ### Summary field implementation
 Compute `meal_count` and `has_grocery_list` in the router via subquery or Python len() after 
 eager-loading relationships. Don't add DB columns — these are derived properties.
+Follows [CONV-SUMMARY-SCHEMA](_conventions.md#conv-summary-schema).
 
-### Authorization pattern
-For PATCH /meals/{meal_id}: query PlannedMeal, then verify 
-`planned_meal.meal_plan_week.user_id == current_user.id`. Return 404 if not found or 
-if user mismatch (don't leak existence).
+### Authorization
+Follows [CONV-AUTH-OWNERSHIP](_conventions.md#conv-auth-ownership). PlannedMeal has no
+`user_id`, so join up: e.g. for PATCH /meals/{meal_id}, verify
+`planned_meal.meal_plan_week.user_id == current_user.id` and return 404 on mismatch.
