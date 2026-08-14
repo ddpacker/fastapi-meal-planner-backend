@@ -6,7 +6,7 @@ alwaysApply: false
 
 ## Provider abstraction
 
-> Canonical rule: [`CONV-AI-CLIENT-INJECTION`](../../docs/plans/_conventions.md#conv-ai-client-injection). The directives below are its code-level enforcement.
+> Canonical rule: [`CONV-AI-CLIENT-INJECTION`](../../docs/CONVENTIONS.md#conv-ai-client-injection). The directives below are its code-level enforcement.
 
 - Services depend only on `AIClientBase` in `app/clients/base.py` — never import the Anthropic SDK (or any vendor SDK) directly in services or routers.
 - The active provider is selected from `settings.ai_provider` via `get_ai_client()` in `app/clients/factory.py` and injected as a FastAPI dependency.
@@ -62,7 +62,7 @@ class AIClientBase(ABC):
 - All prompt strings live here — nowhere else in the codebase.
 - `recipe_generation_prompt(meals: list[tuple[str, list[tuple[MealCourseRole, str | None]]]]) -> str`
   - Instruct the model to return one recipe per flattened course slot; each element: `title`, `role` (MealCourseRole), `servings`, `steps` (list of `{step_number, text}`), `ingredients` (list of `{name, quantity, unit, category}`).
-  - Ingredient/unit names singular, quantities metric, categories from the canonical set — per [`CONV-METRIC-SINGULAR`](../../docs/plans/_conventions.md#conv-metric-singular) and [`CONV-CATEGORY-ENUM`](../../docs/plans/_conventions.md#conv-category-enum). These are what make USDA lookups work without conversion; keep `sample_recipes.json` consistent.
+  - Ingredient/unit names singular, quantities metric, categories from the canonical set — per [`CONV-METRIC-SINGULAR`](../../docs/CONVENTIONS.md#conv-metric-singular) and [`CONV-CATEGORY-ENUM`](../../docs/CONVENTIONS.md#conv-category-enum). These are what make USDA lookups work without conversion; keep `sample_recipes.json` consistent.
 - `chat_modify_prompt(recipe_json: str, history: list[dict], user_message: str) -> str`
   - Include current recipe JSON, chat history, and user request.
   - Ask for a conversational reply and an optional revised recipe JSON block when structural changes are requested.

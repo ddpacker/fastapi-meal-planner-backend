@@ -25,7 +25,7 @@ uv run alembic upgrade head
 @docs/ARCHITECTURE.md` — system design
 
 ## Plan conventions
-`docs/plans/_conventions.md` — cross-cutting rules (auth/ownership, pagination, summary
+`docs/CONVENTIONS.md` — cross-cutting rules (auth/ownership, pagination, summary
 schemas, metric/singular AI output, category enum, delete cascade, AI-client injection).
 Domain plans reference these by stable ID (e.g. CONV-AUTH-OWNERSHIP) instead of restating
 them. Change a shared decision there, not in each plan. When and how to edit conventions vs.

@@ -6,7 +6,7 @@ alwaysApply: false
 ## Testing
 - Every implementation task must be accompanied by pytest tests
 - Use tests/fixtures/sample_recipes.json for deterministic recipe payloads
-- Run tests after implementation and confirm they pass before marking a task done
+- Run tests after implementation and confirm they pass before making a commit
 
 ## Test structure
 
@@ -22,7 +22,7 @@ alwaysApply: false
 
 ## AI client
 
-> Canonical rule: [`CONV-AI-CLIENT-INJECTION`](../../docs/plans/_conventions.md#conv-ai-client-injection) (tests run with `AI_PROVIDER=test`, assert on `recorded_calls`, never set `ANTHROPIC_API_KEY`).
+> Canonical rule: [`CONV-AI-CLIENT-INJECTION`](../../docs/CONVENTIONS.md#conv-ai-client-injection) (tests run with `AI_PROVIDER=test`, assert on `recorded_calls`, never set `ANTHROPIC_API_KEY`).
 
 - **Never** make real AI API calls in tests.
 - Always inject `FakeClient` (the `AIClientBase` recording double) via FastAPI dependency override:
