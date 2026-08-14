@@ -125,6 +125,7 @@ flowchart TD
   - `PUT /meal-plans/{plan_id}` – update plan title or meal list.
   - `DELETE /meal-plans/{plan_id}` – delete plan (cascades to meals and grocery list; recipes are retained).
   - `PATCH /meal-plans/{plan_id}/meals/{meal_id}` – update a single meal’s name, status, or courses list.
+  - `POST /meal-plans/{plan_id}/meals/{meal_id}/courses/{course_id}/generate-recipe` – regenerate the recipe for a single course slot; calls existing service function; returns `PlannedMealRead`.
   - `POST /meal-plans/{plan_id}/generate-recipes` – generate one recipe per `PlannedMealCourse` slot via AI (meal name + role + optional description); store `Recipe` + `RecipeIngredient` + `PlannedMealRecipe` rows.
   - `GET /recipes` – list user’s recipe library with optional search and pagination.
   - `GET /recipes/{recipe_id}` – get recipe with ingredients.

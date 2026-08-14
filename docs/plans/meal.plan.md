@@ -84,6 +84,17 @@ todos:
     dependencies:
       - meal-plan-crud
 
+  - id: course-generate-endpoint
+    content: >
+      Add POST /meal-plans/{plan_id}/meals/{meal_id}/courses/{course_id}/generate-recipe.
+      Verify plan → meal → course ownership chain per CONV-AUTH-OWNERSHIP.
+      Calls the existing generate_recipe_for_course() in recipe_service — no new service logic.
+      Replaces the course's existing PlannedMealRecipe link if one exists (same re-gen behaviour
+      as the PATCH path). Returns PlannedMealRead.
+    status: done
+    dependencies:
+      - meal-course-edit
+
   - id: meal-plan-delete
     content: >
       Add DELETE /meal-plans/{plan_id}.

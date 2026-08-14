@@ -219,3 +219,49 @@ def patch_planned_meal(
         select(PlannedMeal).where(PlannedMeal.id == meal_id).options(_meal_load())
     ).scalar_one()
 
+
+@router.post(
+    "/{plan_id}/meals/{meal_id}/courses/{course_id}/generate-recipe",
+    response_model=PlannedMealRead,
+)
+def generate_course_recipe(
+    plan_id: int,
+    meal_id: int,
+    course_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    ai_client: AIClientBase = Depends(get_ai_client),
+) -> PlannedMeal:
+    plan = db.execute(
+        select(MealPlanWeek).where(
+            MealPlanWeek.id == plan_id,
+            MealPlanWeek.user_id == current_user.id,
+        )
+    ).scalar_one_or_none()
+    if plan is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meal plan not found")
+
+    meal = db.execute(
+        select(PlannedMeal).where(
+            PlannedMeal.id == meal_id,
+            PlannedMeal.meal_plan_week_id == plan_id,
+        )
+    ).scalar_one_or_none()
+    if meal is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meal not found")
+
+    course = db.execute(
+        select(PlannedMealCourse).where(
+            PlannedMealCourse.id == course_id,
+            PlannedMealCourse.planned_meal_id == meal_id,
+        )
+    ).scalar_one_or_none()
+    if course is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
+
+    recipe_service.generate_recipe_for_course(db, ai_client, current_user, meal, course)
+    db.commit()
+    return db.execute(
+        select(PlannedMeal).where(PlannedMeal.id == meal_id).options(_meal_load())
+    ).scalar_one()
+
