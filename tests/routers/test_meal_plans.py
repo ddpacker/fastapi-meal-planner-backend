@@ -425,3 +425,102 @@ def test_patch_course_role_change_replaces_course_row(
     gen_calls = [c for c in fake_ai.recorded_calls if c.method == "generate_recipes"]
     assert len(gen_calls) == 1
     assert gen_calls[0].kwargs["meals"] == [("Tacos", [(MealCourseRole.side, None)])]
+
+
+def test_post_generate_course_recipe_creates_recipe_row(
+    client: TestClient,
+    auth_headers: dict[str, str],
+    plan_with_meals: MealPlanWeek,
+    db: Session,
+    user: User,
+) -> None:
+    meal = db.execute(
+        select(PlannedMeal).where(
+            PlannedMeal.meal_plan_week_id == plan_with_meals.id,
+            PlannedMeal.day_index == 0,
+        )
+    ).scalar_one()
+    course = db.execute(
+        select(PlannedMealCourse).where(PlannedMealCourse.planned_meal_id == meal.id)
+    ).scalar_one()
+
+    assert db.execute(select(func.count()).select_from(Recipe)).scalar_one() == 0
+
+    response = client.post(
+        f"/meal-plans/{plan_with_meals.id}/meals/{meal.id}/courses/{course.id}/generate-recipe",
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == meal.id
+    assert data["status"] == "planned"
+    assert len(data["courses"]) == 1
+    assert data["courses"][0]["recipe_id"] is not None
+
+    recipes = db.execute(select(Recipe).where(Recipe.user_id == user.id)).scalars().all()
+    assert len(recipes) == 1
+    assert data["courses"][0]["recipe_id"] == recipes[0].id
+
+
+def test_post_generate_course_recipe_other_user_returns_404(
+    client: TestClient,
+    auth_headers: dict[str, str],
+    db: Session,
+) -> None:
+    other = User(email="other@example.com", password_hash="hashed")
+    db.add(other)
+    db.flush()
+    plan = MealPlanWeek(
+        user_id=other.id,
+        start_date=datetime.date(2026, 4, 14),
+        end_date=datetime.date(2026, 4, 20),
+        title="Other Week",
+    )
+    db.add(plan)
+    db.flush()
+    meal = PlannedMeal(meal_plan_week_id=plan.id, day_index=0, meal_name="Secret")
+    db.add(meal)
+    db.flush()
+    course = PlannedMealCourse(
+        planned_meal_id=meal.id, role=MealCourseRole.entree, description=None
+    )
+    db.add(course)
+    db.commit()
+
+    response = client.post(
+        f"/meal-plans/{plan.id}/meals/{meal.id}/courses/{course.id}/generate-recipe",
+        headers=auth_headers,
+    )
+    assert response.status_code == 404
+    assert db.execute(select(func.count()).select_from(Recipe)).scalar_one() == 0
+
+
+def test_post_generate_course_recipe_course_not_in_meal_returns_404(
+    client: TestClient,
+    auth_headers: dict[str, str],
+    plan_with_meals: MealPlanWeek,
+    db: Session,
+) -> None:
+    meal_a = db.execute(
+        select(PlannedMeal).where(
+            PlannedMeal.meal_plan_week_id == plan_with_meals.id,
+            PlannedMeal.day_index == 0,
+        )
+    ).scalar_one()
+    meal_b = db.execute(
+        select(PlannedMeal).where(
+            PlannedMeal.meal_plan_week_id == plan_with_meals.id,
+            PlannedMeal.day_index == 1,
+        )
+    ).scalar_one()
+    course_b = db.execute(
+        select(PlannedMealCourse).where(PlannedMealCourse.planned_meal_id == meal_b.id)
+    ).scalar_one()
+
+    response = client.post(
+        f"/meal-plans/{plan_with_meals.id}/meals/{meal_a.id}/courses/{course_b.id}/generate-recipe",
+        headers=auth_headers,
+    )
+    assert response.status_code == 404
+    assert db.execute(select(func.count()).select_from(Recipe)).scalar_one() == 0
+
