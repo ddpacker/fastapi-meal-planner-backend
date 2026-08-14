@@ -78,16 +78,16 @@ flowchart TD
 
 - **Ingredients & grocery items**
   - `Ingredient` – global shared catalog of **canonical food identity**, deduplicated to base
-    form per [CONV-INGREDIENT-MODEL](plans/_conventions.md#conv-ingredient-model) (append-mostly).
+    form per [CONV-INGREDIENT-MODEL](CONVENTIONS.md#conv-ingredient-model) (append-mostly).
     - Fields: `id`, `name` (unique, singular, normalized lowercase base food — e.g. `jasmine rice`, not `cooked jasmine rice`), `category`, timestamps.
   - `RecipeIngredient` – association of a recipe to a catalog ingredient with per-use amount and preparation.
-    - Fields: `id`, `recipe_id`, `ingredient_id`, `quantity` (Numeric), `unit` (singular, metric), optional free-text `preparation` ("cooked", "day-old", "diced"); lines differing only in preparation share one `Ingredient` row. See [CONV-INGREDIENT-MODEL](plans/_conventions.md#conv-ingredient-model).
+    - Fields: `id`, `recipe_id`, `ingredient_id`, `quantity` (Numeric), `unit` (singular, metric), optional free-text `preparation` ("cooked", "day-old", "diced"); lines differing only in preparation share one `Ingredient` row. See [CONV-INGREDIENT-MODEL](CONVENTIONS.md#conv-ingredient-model).
     - AI is instructed to output singular base names and metric units for clean USDA lookups; the service collapses to canonical identity on write.
   - `GroceryList` – per-week grocery aggregation.
     - Fields: `id`, `meal_plan_week_id`, `title`, `notes`, timestamps.
   - `GroceryItem`
     - Fields: `id`, `grocery_list_id`, `name`, `total_quantity`, `unit`, `category`, `checked`.
-    - Still denormalized (free-text `name`). _Target per [CONV-INGREDIENT-MODEL](plans/_conventions.md#conv-ingredient-model):_ join the catalog on `ingredient_id` and aggregate on `ingredient_id` + `unit`, so collapsed identities sum into one item. Lands with the grocery service.
+    - Still denormalized (free-text `name`). _Target per [CONV-INGREDIENT-MODEL](CONVENTIONS.md#conv-ingredient-model):_ join the catalog on `ingredient_id` and aggregate on `ingredient_id` + `unit`, so collapsed identities sum into one item. Lands with the grocery service.
 
 - **Chat & AI interactions**
   - `ChatSession`
@@ -109,7 +109,7 @@ flowchart TD
   - `POST /auth/login` – return JWT for authenticated requests.
   - `POST /auth/logout` – revoke the current access token (JTI in `revoked_tokens`); subsequent use returns 401.
   - `GET /auth/google` – redirect to Google (503 if not configured).
-  - `GET /auth/google/callback` – OAuth code exchange, ID token verification, JWT issuance (links by email to existing users via `google_sub`).
+  - `GET /auth/google/callback` – OAuth code exchange, ID token verification, JWT issuance (links by email to existing users via `google_sub`; returns 409 if the Google account's email matches an existing account already linked to a different `google_sub`).
 
 - **User endpoints** (`/users` router)
   - `GET /users/me` – get current user profile.
@@ -173,7 +173,7 @@ flowchart TD
     - All quantities must be in **metric units** — never imperial. The frontend converts for display based on `UserPreferences.unit_system`.
   - **Chat modification prompt**: include current recipe JSON + chat history, ask the model to:
     - answer conversationally, and
-    - optionally return a revised recipe JSON when structural changes are requested (same singular + metric conventions apply).
+    - optionally return a revised recipe JSON when structural changes are requested (same singular + metric conventions apply). When no structural change is needed, omit the `revised_recipe` key entirely — do not send `null` or an empty object. `chat_service` treats a missing key as "no update" and treats any present value as a full recipe replacement.
   - Templates remain **vendor-agnostic** string builders; providers only differ in how they send the assembled text.
 
 - **Parsing & validation**
@@ -184,8 +184,7 @@ flowchart TD
 
 - **Grocery list generation** (`app/services/grocery_service.py`)
   - Query all `RecipeIngredient` records for a given `MealPlanWeek`.
-  - Normalize ingredient names (e.g., case, pluralization basic rules) and units where possible.
-  - Aggregate quantities by `(name, unit)` and classify into categories (e.g., by a small static mapping table or AI-assisted classification).
+  - Aggregate quantities by `(ingredient_id, unit)` — not by name — so ingredient rows collapsed to the same canonical identity via [CONV-INGREDIENT-MODEL](CONVENTIONS.md#conv-ingredient-model) sum into one grocery item. Category comes from the joined `Ingredient` catalog row, not from `RecipeIngredient`.
   - Persist `GroceryList` + `GroceryItem` records.
 
 - **Nutrition estimation** (`app/services/nutrition_service.py`)
@@ -203,7 +202,7 @@ flowchart TD
   - Dependency to resolve `current_user` from the token.
   - All meal/recipe/chat/grocery endpoints require `current_user` and filter data by `user_id`.
     Ownership scoping (direct vs. joined `user_id`, 404-not-403) is specified once in
-    [CONV-AUTH-OWNERSHIP](plans/_conventions.md#conv-auth-ownership).
+    [CONV-AUTH-OWNERSHIP](CONVENTIONS.md#conv-auth-ownership).
 - Ensure **AI provider credentials**, DB URL, and JWT secrets are taken from environment variables and not hard-coded.
 
 ## 8. Testing & observability
