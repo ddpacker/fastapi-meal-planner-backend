@@ -12,6 +12,7 @@ from app.models.recipe import Recipe
 from app.models.user import User
 from app.schemas.chat import ChatMessageCreate, ChatMessageRead, ChatSessionRead
 from app.services import chat_service
+from app.services.usda_client import UsdaClient, get_usda_client
 
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -61,8 +62,9 @@ def send_chat_message(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     ai_client: AIClientBase = Depends(get_ai_client),
+    usda_client: UsdaClient = Depends(get_usda_client),
 ) -> list[ChatMessage]:
     return chat_service.send_message(
-        session_id, message_in.content, db, ai_client, current_user
+        session_id, message_in.content, db, ai_client, current_user, usda_client
     )
 

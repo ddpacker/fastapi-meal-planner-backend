@@ -27,6 +27,20 @@ def normalize_ingredient_name(name: str) -> str:
     return name.lower().strip()
 
 
+_MISSING_UNITS = frozenset({"", "none", "null", "n/a", "na", "-"})
+_DEFAULT_UNIT = "each"
+
+
+def normalize_unit(unit: str | None) -> str:
+    """Always return a stored unit; missing/blank AI values become 'each'."""
+    if unit is None:
+        return _DEFAULT_UNIT
+    normalized = unit.lower().strip()
+    if normalized in _MISSING_UNITS:
+        return _DEFAULT_UNIT
+    return normalized
+
+
 def extract_preparation(name: str) -> tuple[str, str | None]:
     tokens = name.strip().split()
     if not tokens:

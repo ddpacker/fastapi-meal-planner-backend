@@ -9,8 +9,10 @@ from app.models.chat import ChatMessage, ChatSession
 from app.models.recipe import Recipe, RecipeIngredient, RecipeStep
 from app.models.user import User
 from app.schemas.recipes import RecipeCreate, RecipeRead
-from app.services.ingredient_service import extract_preparation
+from app.services.ingredient_service import extract_preparation, normalize_unit
 from app.services.ingredient_service import get_or_create as get_or_create_ingredient
+from app.services.nutrition_service import ensure_and_calculate
+from app.services.usda_client import UsdaClient
 
 
 def send_message(
@@ -19,6 +21,7 @@ def send_message(
     db: Session,
     ai_client: AIClientBase,
     user: User,
+    usda_client: UsdaClient | None = None,
 ) -> list[ChatMessage]:
     session = db.execute(
         select(ChatSession)
@@ -28,7 +31,7 @@ def send_message(
             selectinload(ChatSession.recipe)
             .selectinload(Recipe.ingredients)
             .selectinload(RecipeIngredient.ingredient),
-            selectinload(ChatSession.recipe).selectinload(Recipe.nutrition_info),
+            selectinload(ChatSession.recipe).selectinload(Recipe.recipe_nutrition),
         )
     ).scalar_one_or_none()
     if session is None:
@@ -63,7 +66,7 @@ def send_message(
     db.add(assistant_msg)
 
     if result.revised_recipe is not None:
-        _apply_revised_recipe(db, recipe, result.revised_recipe)
+        _apply_revised_recipe(db, recipe, result.revised_recipe, usda_client)
 
     db.commit()
 
@@ -82,7 +85,12 @@ def _recipe_to_json(recipe: Recipe) -> str:
     return json.dumps(read.model_dump(mode="json"))
 
 
-def _apply_revised_recipe(db: Session, recipe: Recipe, revised: RecipeCreate) -> None:
+def _apply_revised_recipe(
+    db: Session,
+    recipe: Recipe,
+    revised: RecipeCreate,
+    usda_client: UsdaClient | None = None,
+) -> None:
     recipe.title = revised.title
     recipe.servings = revised.servings
 
@@ -109,10 +117,9 @@ def _apply_revised_recipe(db: Session, recipe: Recipe, revised: RecipeCreate) ->
                 recipe_id=recipe.id,
                 ingredient_id=catalog.id,
                 quantity=ing.quantity,
-                unit=ing.unit,
+                unit=normalize_unit(ing.unit),
                 preparation=preparation,
             )
         )
 
-    if recipe.nutrition_info is not None:
-        db.delete(recipe.nutrition_info)
+    ensure_and_calculate(db, recipe, usda_client)

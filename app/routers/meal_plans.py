@@ -20,6 +20,7 @@ from app.schemas.meal_plans import (
     PlannedMealUpdate,
 )
 from app.services import recipe_service
+from app.services.usda_client import UsdaClient, get_usda_client
 
 
 router = APIRouter(prefix="/meal-plans", tags=["meal-plans"])
@@ -173,8 +174,11 @@ def generate_recipes_for_plan(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     ai_client: AIClientBase = Depends(get_ai_client),
+    usda_client: UsdaClient = Depends(get_usda_client),
 ) -> MealPlanWeek:
-    return recipe_service.generate_recipes_for_plan(plan_id, db, ai_client, current_user)
+    return recipe_service.generate_recipes_for_plan(
+        plan_id, db, ai_client, current_user, usda_client
+    )
 
 
 @router.patch("/{plan_id}/meals/{meal_id}", response_model=PlannedMealRead)
@@ -185,6 +189,7 @@ def patch_planned_meal(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     ai_client: AIClientBase = Depends(get_ai_client),
+    usda_client: UsdaClient = Depends(get_usda_client),
 ) -> PlannedMeal:
     stmt = (
         select(PlannedMeal)
@@ -212,7 +217,9 @@ def patch_planned_meal(
         meal.status = body.status
 
     if body.courses is not None:
-        recipe_service.sync_planned_meal_courses(db, ai_client, current_user, meal, body.courses)
+        recipe_service.sync_planned_meal_courses(
+            db, ai_client, current_user, meal, body.courses, usda_client
+        )
 
     db.commit()
     return db.execute(
@@ -231,6 +238,7 @@ def generate_course_recipe(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     ai_client: AIClientBase = Depends(get_ai_client),
+    usda_client: UsdaClient = Depends(get_usda_client),
 ) -> PlannedMeal:
     plan = db.execute(
         select(MealPlanWeek).where(
@@ -259,7 +267,9 @@ def generate_course_recipe(
     if course is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
 
-    recipe_service.generate_recipe_for_course(db, ai_client, current_user, meal, course)
+    recipe_service.generate_recipe_for_course(
+        db, ai_client, current_user, meal, course, usda_client
+    )
     db.commit()
     return db.execute(
         select(PlannedMeal).where(PlannedMeal.id == meal_id).options(_meal_load())

@@ -11,6 +11,7 @@ from app.models.meal_plan import (
     PlannedMealCourse,
     PlannedMealRecipe,
 )
+from app.models.nutrition import RecipeNutrition
 from app.models.recipe import Recipe, RecipeIngredient, RecipeStep
 from app.models.user import User
 from app.services.recipe_service import generate_recipes_for_plan, list_recipes
@@ -201,6 +202,16 @@ class TestGenerateRecipesForPlan:
 
         recipes = db.query(Recipe).filter(Recipe.user_id == user.id).all()
         assert len(recipes) == 2  # still two, not four
+
+    def test_generation_writes_recipe_nutrition(self, db: Session, user: User, plan_with_meals: MealPlanWeek):
+        client = FakeClient()
+        generate_recipes_for_plan(plan_with_meals.id, db, client, user)
+
+        recipes = db.query(Recipe).filter(Recipe.user_id == user.id).all()
+        rows = db.query(RecipeNutrition).all()
+        assert len(rows) == len(recipes)
+        assert {row.recipe_id for row in rows} == {r.id for r in recipes}
+        assert all(row.source == "usda" for row in rows)
 
     def test_empty_plan_returns_early(self, db: Session, user: User):
         """A plan with no meals returns immediately without calling the AI client."""

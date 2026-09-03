@@ -14,17 +14,20 @@ from app.models.meal_plan import (
     PlannedMealCourse,
     PlannedMealRecipe,
 )
-from app.models.nutrition import NutritionInfo
+from app.models.nutrition import RecipeNutrition
 from app.models.recipe import Recipe, RecipeIngredient, RecipeStep
 from app.models.user import User
 from app.services.ingredient_service import get_or_create as get_or_create_ingredient
+from app.services.usda_client import FakeUsdaClient, UsdaFoodResult, get_usda_client
 
 
-def _make_client(db: Session) -> TestClient:
+def _make_client(db: Session, usda: FakeUsdaClient | None = None) -> TestClient:
     def override_db():
         yield db
 
     app.dependency_overrides[get_db] = override_db
+    if usda is not None:
+        app.dependency_overrides[get_usda_client] = lambda: usda
     return TestClient(app)
 
 
@@ -338,7 +341,7 @@ def test_delete_recipe_cascades_and_returns_204(db: Session, user: User) -> None
             recipe_id=recipe.id, ingredient_id=catalog.id, quantity=1, unit="piece"
         )
     )
-    db.add(NutritionInfo(recipe_id=recipe.id, calories=100))
+    db.add(RecipeNutrition(recipe_id=recipe.id, calories=100))
     db.add(
         PlannedMealRecipe(
             planned_meal_id=meal.id,
@@ -377,8 +380,8 @@ def test_delete_recipe_cascades_and_returns_204(db: Session, user: User) -> None
     assert (
         db.execute(
             select(func.count())
-            .select_from(NutritionInfo)
-            .where(NutritionInfo.recipe_id == recipe_id)
+            .select_from(RecipeNutrition)
+            .where(RecipeNutrition.recipe_id == recipe_id)
         ).scalar_one()
         == 0
     )
@@ -405,3 +408,83 @@ def test_delete_recipe_unknown_or_other_user_returns_404(db: Session, user: User
         == 404
     )
     assert client.delete("/recipes/99999", headers=_auth_headers(user)).status_code == 404
+
+
+def _chicken_food() -> UsdaFoodResult:
+    return UsdaFoodResult(
+        fdc_id=171077,
+        name="chicken breast",
+        nutrient_data=[
+            {"nutrient_id": 1008, "name": "Energy", "unit": "KCAL", "amount": 165.0},
+            {"nutrient_id": 1003, "name": "Protein", "unit": "G", "amount": 31.0},
+            {"nutrient_id": 1005, "name": "Carbohydrate, by difference", "unit": "G", "amount": 0.0},
+            {"nutrient_id": 1004, "name": "Total lipid (fat)", "unit": "G", "amount": 3.6},
+            {"nutrient_id": 1079, "name": "Fiber, total dietary", "unit": "G", "amount": 0.0},
+            {"nutrient_id": 2000, "name": "Sugars, total including NLEA", "unit": "G", "amount": 0.0},
+            {"nutrient_id": 1093, "name": "Sodium, Na", "unit": "MG", "amount": 74.0},
+            {"nutrient_id": 1087, "name": "Calcium, Ca", "unit": "MG", "amount": 15.0},
+        ],
+        source_version="2024-10-31",
+    )
+
+
+def test_create_recipe_writes_nutrition_and_get_returns_macros(db: Session, user: User) -> None:
+    usda = FakeUsdaClient(foods={"chicken breast": _chicken_food()})
+    payload = {
+        "title": "Chicken",
+        "servings": 2,
+        "steps": [{"step_number": 1, "text": "Cook"}],
+        "ingredients": [
+            {"name": "chicken breast", "quantity": 200, "unit": "gram", "category": "meat"},
+        ],
+    }
+    client = _make_client(db, usda)
+    created = client.post("/recipes", json=payload, headers=_auth_headers(user))
+    assert created.status_code == 201
+    recipe_id = created.json()["id"]
+
+    response = client.get(f"/recipes/{recipe_id}/nutrition", headers=_auth_headers(user))
+    assert response.status_code == 200
+    data = response.json()
+    assert data["calories"] == 165.0
+    assert data["protein_g"] == 31.0
+    assert data["carbs_g"] == 0.0
+    assert data["fat_g"] == 3.6
+    assert data["fiber_g"] == 0.0
+    assert data["sugar_g"] == 0.0
+    assert data["sodium_mg"] == 74.0
+    assert data["per_serving"] is True
+    assert data["source"] == "usda"
+    assert any(m["nutrient_id"] == 1087 for m in data["micro_nutrients_json"])
+
+
+def test_post_nutrition_recalculates_from_cache(db: Session, user: User) -> None:
+    usda = FakeUsdaClient(foods={"chicken breast": _chicken_food()})
+    recipe = _add_recipe(db, user, title="Cached", servings=2)
+    catalog = get_or_create_ingredient(db, "chicken breast", "meat")
+    db.add(
+        RecipeIngredient(
+            recipe_id=recipe.id, ingredient_id=catalog.id, quantity=200, unit="gram"
+        )
+    )
+    db.commit()
+
+    client = _make_client(db, usda)
+    first = client.post(f"/recipes/{recipe.id}/nutrition", headers=_auth_headers(user))
+    assert first.status_code == 201
+    assert first.json()["calories"] == 165.0
+
+    recipe.servings = 1
+    db.commit()
+    second = client.post(f"/recipes/{recipe.id}/nutrition", headers=_auth_headers(user))
+    assert second.status_code == 201
+    assert second.json()["calories"] == 330.0
+    assert usda.recorded_calls == ["chicken breast"]
+
+
+def test_get_nutrition_404_when_missing(db: Session, user: User) -> None:
+    recipe = _add_recipe(db, user, title="No nutrition")
+    db.commit()
+    client = _make_client(db)
+    response = client.get(f"/recipes/{recipe.id}/nutrition", headers=_auth_headers(user))
+    assert response.status_code == 404
