@@ -5,14 +5,14 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.deps import get_current_user
 from app.db.session import get_db
 from app.models.meal_plan import PlannedMeal, PlannedMealRecipe
-from app.models.nutrition import NutritionInfo
-from app.models.recipe import Recipe, RecipeIngredient, RecipeStep
+from app.models.nutrition import RecipeNutrition
+from app.models.recipe import Recipe, RecipeIngredient
 from app.models.user import User
-from app.schemas.nutrition import NutritionInfoRead
+from app.schemas.nutrition import RecipeNutritionRead
 from app.schemas.recipes import RecipeCreate, RecipeRead, RecipeSummaryRead, RecipeUpdate
 from app.services import recipe_service
-from app.services.ingredient_service import extract_preparation
-from app.services.ingredient_service import get_or_create as get_or_create_ingredient
+from app.services.nutrition_service import ensure_and_calculate, get_recipe_nutrition
+from app.services.usda_client import UsdaClient, get_usda_client
 
 
 router = APIRouter(prefix="/recipes", tags=["recipes"])
@@ -23,39 +23,9 @@ def create_recipe(
     recipe_in: RecipeCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    usda_client: UsdaClient = Depends(get_usda_client),
 ) -> Recipe:
-    recipe = Recipe(
-        user_id=current_user.id,
-        title=recipe_in.title,
-        servings=recipe_in.servings,
-    )
-    db.add(recipe)
-    db.flush()
-
-    for step_in in recipe_in.steps:
-        db.add(
-            RecipeStep(
-                recipe_id=recipe.id,
-                step_number=step_in.step_number,
-                text=step_in.text,
-            )
-        )
-
-    for ingr_in in recipe_in.ingredients:
-        base_name, preparation = extract_preparation(ingr_in.name)
-        catalog = get_or_create_ingredient(db, base_name, ingr_in.category)
-        db.add(
-            RecipeIngredient(
-                recipe_id=recipe.id,
-                ingredient_id=catalog.id,
-                quantity=ingr_in.quantity,
-                unit=ingr_in.unit,
-                preparation=preparation,
-            )
-        )
-
-    db.commit()
-    return recipe_service.get_owned_recipe(db, current_user, recipe.id)
+    return recipe_service.create_recipe(db, current_user, recipe_in, usda_client)
 
 
 @router.get("", response_model=list[RecipeSummaryRead])
@@ -131,8 +101,9 @@ def update_recipe(
     recipe_in: RecipeUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    usda_client: UsdaClient = Depends(get_usda_client),
 ) -> Recipe:
-    return recipe_service.update_recipe(db, current_user, recipe_id, recipe_in)
+    return recipe_service.update_recipe(db, current_user, recipe_id, recipe_in, usda_client)
 
 
 @router.delete("/{recipe_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -144,45 +115,30 @@ def delete_recipe(
     recipe_service.delete_recipe(db, current_user, recipe_id)
 
 
-@router.post("/{recipe_id}/nutrition", response_model=NutritionInfoRead, status_code=status.HTTP_201_CREATED)
+@router.post("/{recipe_id}/nutrition", response_model=RecipeNutritionRead, status_code=status.HTTP_201_CREATED)
 def calculate_nutrition(
     recipe_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> NutritionInfo:
+    usda_client: UsdaClient = Depends(get_usda_client),
+) -> RecipeNutrition:
     recipe = recipe_service.get_owned_recipe(db, current_user, recipe_id)
-
-    existing = db.execute(
-        select(NutritionInfo).where(NutritionInfo.recipe_id == recipe.id)
-    ).scalar_one_or_none()
-    if existing is not None:
-        db.delete(existing)
-        db.flush()
-
-    nutrition_info = NutritionInfo(
-        recipe_id=recipe.id,
-        per_serving=True,
-        source="placeholder",
-    )
-    db.add(nutrition_info)
+    nutrition = ensure_and_calculate(db, recipe, usda_client)
     db.commit()
-    db.refresh(nutrition_info)
-    return nutrition_info
+    db.refresh(nutrition)
+    return nutrition
 
 
-@router.get("/{recipe_id}/nutrition", response_model=NutritionInfoRead)
+@router.get("/{recipe_id}/nutrition", response_model=RecipeNutritionRead)
 def get_nutrition(
     recipe_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> NutritionInfo:
+) -> RecipeNutrition:
     recipe = recipe_service.get_owned_recipe(db, current_user, recipe_id)
-
-    nutrition_info = db.execute(
-        select(NutritionInfo).where(NutritionInfo.recipe_id == recipe.id)
-    ).scalar_one_or_none()
-    if nutrition_info is None:
+    nutrition = get_recipe_nutrition(db, recipe)
+    if nutrition is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Nutrition info not found for this recipe"
         )
-    return nutrition_info
+    return nutrition

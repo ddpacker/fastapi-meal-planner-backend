@@ -24,6 +24,7 @@ flowchart TD
   chatService --> db
   groceryService --> db
   nutritionService --> db
+  nutritionService --> usdaClient[USDA FDC]
 
   recipeService --> aiClient[AIClient ABC]
   chatService --> aiClient
@@ -33,13 +34,13 @@ flowchart TD
 
 - **Top-level layout** (example):
   - `app/main.py` – FastAPI app, routers include, startup/shutdown.
-  - `app/config.py` – settings (DB URL, **AI provider id**, credentials and model name per provider as needed).
+  - `app/config.py` – settings (DB URL, **AI provider id**, credentials and model name per provider as needed, `USDA_API_KEY`).
   - `app/db/session.py` – SQLAlchemy engine, sessionmaker, dependency.
   - `app/db/base.py` – Base class and model imports.
-  - `app/models/` – SQLAlchemy models (`user.py`, `meal_plan.py`, `recipe.py`, `ingredient.py`, `chat.py`).
+  - `app/models/` – SQLAlchemy models (`user.py`, `meal_plan.py`, `recipe.py`, `ingredient.py`, `chat.py`, `nutrition.py`).
   - `app/schemas/` – Pydantic models for requests/responses.
   - `app/routers/` – FastAPI routers (`meals.py`, `recipes.py`, `chat.py`, `grocery.py`, `auth.py`).
-  - `app/services/` – business logic (`meal_plan_service.py`, `recipe_service.py`, `grocery_service.py`, `nutrition_service.py`).
+  - `app/services/` – business logic (`meal_plan_service.py`, `recipe_service.py`, `grocery_service.py`, `nutrition_service.py`, `usda_client.py`).
   - `app/clients/` – AI integration:
     - `base.py` – **ABC** defining the contract (e.g. `generate_recipes`, `chat_modify`) and shared types.
     - One module per provider (e.g. `anthropic_client.py`, future `openai_client.py`, etc.).
@@ -81,7 +82,7 @@ flowchart TD
     form per [CONV-INGREDIENT-MODEL](CONVENTIONS.md#conv-ingredient-model) (append-mostly).
     - Fields: `id`, `name` (unique, singular, normalized lowercase base food — e.g. `jasmine rice`, not `cooked jasmine rice`), `category`, timestamps.
   - `RecipeIngredient` – association of a recipe to a catalog ingredient with per-use amount and preparation.
-    - Fields: `id`, `recipe_id`, `ingredient_id`, `quantity` (Numeric), `unit` (singular, metric), optional free-text `preparation` ("cooked", "day-old", "diced"); lines differing only in preparation share one `Ingredient` row. See [CONV-INGREDIENT-MODEL](CONVENTIONS.md#conv-ingredient-model).
+    - Fields: `id`, `recipe_id`, `ingredient_id`, `quantity` (Numeric), `unit` (required singular string; missing/blank/"none" from AI is normalized to `each` on write; mass/volume stay metric per [CONV-METRIC-SINGULAR](CONVENTIONS.md#conv-metric-singular)), optional free-text `preparation` ("cooked", "day-old", "diced"); lines differing only in preparation share one `Ingredient` row. See [CONV-INGREDIENT-MODEL](CONVENTIONS.md#conv-ingredient-model).
     - AI is instructed to output singular base names and metric units for clean USDA lookups; the service collapses to canonical identity on write.
   - `GroceryList` – per-week grocery aggregation.
     - Fields: `id`, `meal_plan_week_id`, `title`, `notes`, timestamps.
@@ -96,11 +97,12 @@ flowchart TD
     - Fields: `id`, `chat_session_id`, `role` (user|assistant), `content`, `created_at`.
 
 - **Nutrition**
-  - `NutritionInfo`
-    - Fields: `id`, `recipe_id`, macro breakdown (`calories`, `protein_g`, `carbs_g`, `fat_g`, `fiber_g`, `sugar_g`, `sodium_mg` — all nullable Numeric), `per_serving` (bool), `source` (usda|manual), timestamps.
+  - `RecipeNutrition`
+    - Fields: `id`, `recipe_id`, macro breakdown (`calories`, `protein_g`, `carbs_g`, `fat_g`, `fiber_g`, `sugar_g`, `sodium_mg` — all nullable Numeric), `micro_nutrients_json` (a JSONB representation of any micronutrients calculated from the USDA data), `per_serving` (bool), `source` (usda|manual), timestamps.
     - One-to-one with `Recipe`. Values are per serving when `per_serving=True`.
-  - `FoodNutritionCache` – USDA lookup cache.
-    - Fields: `id`, `name` (unique, indexed), `nutrient_data_json`, `fetched_at`. TTL: 30 days.
+  - `IngredientNutrition` – USDA lookup records, 1:1 with `Ingredient` (unique `ingredient_id`).
+    - Fields: `id`, `fdc_id` (the USDA FDC ID; canonical cache key), `ingredient_id` (FK to the ingredient table), `name` (unique, indexed; copy of canonical `Ingredient.name`), `nutrient_data_json` (nutrients as JSONB: avoids a rigid nutrient-per-column schema since USDA's nutrient list varies by data_type and food. Shape: [{ "nutrient_id": 1008, "name": "Energy", "unit": "KCAL", "amount": 165.0 }, ...]), `fetched_at`, `last_checked`, `source_version` (USDA publication_date or SR/FNDDS release tag, for diffing), timestamps.
+    - `fetched_at` and `last_checked` are set once on insert and are not updated by the API.
 
 ## 4. API endpoint design
 
@@ -150,8 +152,8 @@ flowchart TD
   - `GET /grocery/grocery-lists/{list_id}/export` – export list as grouped plain text.
 
 - **Nutrition endpoints** (`/recipes` router)
-  - `POST /recipes/{recipe_id}/nutrition` – fetch and persist nutrition via USDA lookup; upserts on repeat calls.
-  - `GET /recipes/{recipe_id}/nutrition` – fetch stored `NutritionInfo`.
+  - `POST /recipes/{recipe_id}/nutrition` – upsert `RecipeNutrition` from cached `IngredientNutrition` plus USDA-on-miss (does not refresh existing cache rows). Used for recipes that lack nutrition or after quantity/serving changes.
+  - `GET /recipes/{recipe_id}/nutrition` – fetch stored `RecipeNutrition` (macros + `micro_nutrients_json`). Ownership via `Recipe.user_id`.
 
 ## 5. AI provider integration & prompt strategy
 
@@ -189,11 +191,12 @@ flowchart TD
 
 - **Nutrition estimation** (`app/services/nutrition_service.py`)
   - Uses USDA FoodData Central exclusively — no AI estimation, no Edamam.
-  - Per-ingredient lookup via `app/services/usda_client.py`; results scaled by quantity and summed across all ingredients, then divided by servings for per-serving totals.
-  - Cache-aside via `FoodNutritionCache` table: check DB first, hit USDA API on miss, persist result with `fetched_at`. TTL: 30 days. This flattens API cost at scale and enables future `pgvector` semantic ingredient queries.
-  - Unmatched ingredients leave their macro fields null (not zero) — null means unknown, zero means zero.
-  - `NutritionInfo.source` is set to `"usda"`. A `"manual"` source is reserved for a future user-entry endpoint.
-  - USDA API key configured via `USDA_API_KEY` env var (DEMO_KEY works for development).
+  - Per-ingredient lookup via `app/services/usda_client.py`; results scaled by quantity and summed across all ingredients, then divided by servings for per-serving totals. Mass units (`gram` / `g`) and millilitre-class units scale as qty/100 against USDA per-100g values; `kilogram` / `kg` and `litre` / `liter` scale as qty×10. Other units (e.g. `piece`, `whole`, missing unit) skip that line.
+  - Store USDA nutrient data in a permanent `IngredientNutrition` table. On new ingredient, check by `ingredient_id`, fetch from FDC API on miss and insert, otherwise return the stored row immediately. Keep rows permanent and stable so pgvector embeddings can reference them durably in the future. Lookups use canonical `Ingredient.name`, never `RecipeIngredient.preparation`.
+  - Set `fetched_at` and `last_checked` on first insert. These are not updated by the API. A separate batch job will refresh this table.
+  - After populating `IngredientNutrition`, calculate recipe totals into `RecipeNutrition` for display. Recipe generation, manual create/update, and chat revise all call this path. Existing cache rows are never refreshed here.
+  - Unmatched ingredient lines (missing cache, missing quantity/unit, or non-mass/volume units such as `piece` / `whole` / null unit) are **skipped** in the recipe total rather than zeroing the whole recipe. If no lines can be scaled, recipe macros stay null. A nutrient absent on one food contributes 0 for that line (e.g. sugar has no fiber); the field is null only when no scaled food provides that nutrient. Sugar accepts FDC ids 2000 and 1063.
+  - USDA API key configured via `USDA_API_KEY` env var. Missing key skips the fetch (ingredient unmatched) rather than failing recipe persist. Tests inject `FakeUsdaClient`.
 
 ## 7. Auth, security, and multi-user concerns
 

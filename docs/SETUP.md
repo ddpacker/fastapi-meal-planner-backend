@@ -26,6 +26,9 @@ ANTHROPIC_API_KEY=<ANTHROPIC_API_KEY>
 ANTHROPIC_MODEL=<ANTHROPIC_MODEL>
 AI_PROVIDER=anthropic
 
+# Optional — USDA FoodData Central (nutrition lookups on new ingredients)
+USDA_API_KEY=<USDA_API_KEY>
+
 # Optional — Google OAuth / OIDC (`GET /auth/google`, `GET /auth/google/callback`)
 GOOGLE_CLIENT_ID=<GOOGLE_CLIENT_ID>
 GOOGLE_CLIENT_SECRET=<GOOGLE_CLIENT_SECRET>

@@ -26,6 +26,7 @@ Required in production:
 - `ANTHROPIC_MODEL` – Anthropic model selection
 - `SECRET_KEY` – JWT secret from Key Vault
 - `AI_PROVIDER` – Provider selection (anthropic, test)
+- `USDA_API_KEY` – USDA FoodData Central API key (optional locally; required for live nutrition fetches)
 
 See [SETUP.md](SETUP.md) for full list.
 

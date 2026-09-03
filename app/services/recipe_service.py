@@ -12,8 +12,10 @@ from app.models.recipe import Recipe, RecipeIngredient, RecipeStep
 from app.models.user import User
 from app.schemas.meal_plans import PlannedMealCourseUpsert
 from app.schemas.recipes import RecipeCreate, RecipeUpdate
-from app.services.ingredient_service import extract_preparation
+from app.services.ingredient_service import extract_preparation, normalize_unit
 from app.services.ingredient_service import get_or_create as get_or_create_ingredient
+from app.services.nutrition_service import ensure_and_calculate
+from app.services.usda_client import UsdaClient
 
 
 def list_recipes(
@@ -52,11 +54,53 @@ def get_owned_recipe(db: Session, user: User, recipe_id: int) -> Recipe:
     return recipe
 
 
+def create_recipe(
+    db: Session,
+    user: User,
+    recipe_in: RecipeCreate,
+    usda_client: UsdaClient | None = None,
+) -> Recipe:
+    recipe = Recipe(
+        user_id=user.id,
+        title=recipe_in.title,
+        servings=recipe_in.servings,
+    )
+    db.add(recipe)
+    db.flush()
+
+    for step_in in recipe_in.steps:
+        db.add(
+            RecipeStep(
+                recipe_id=recipe.id,
+                step_number=step_in.step_number,
+                text=step_in.text,
+            )
+        )
+
+    for ingr_in in recipe_in.ingredients:
+        base_name, preparation = extract_preparation(ingr_in.name)
+        catalog = get_or_create_ingredient(db, base_name, ingr_in.category)
+        db.add(
+            RecipeIngredient(
+                recipe_id=recipe.id,
+                ingredient_id=catalog.id,
+                quantity=ingr_in.quantity,
+                unit=normalize_unit(ingr_in.unit),
+                preparation=preparation,
+            )
+        )
+
+    ensure_and_calculate(db, recipe, usda_client)
+    db.commit()
+    return get_owned_recipe(db, user, recipe.id)
+
+
 def update_recipe(
     db: Session,
     user: User,
     recipe_id: int,
     recipe_in: RecipeUpdate,
+    usda_client: UsdaClient | None = None,
 ) -> Recipe:
     recipe = get_owned_recipe(db, user, recipe_id)
     recipe.title = recipe_in.title
@@ -84,11 +128,12 @@ def update_recipe(
                 recipe_id=recipe.id,
                 ingredient_id=catalog.id,
                 quantity=ing.quantity,
-                unit=ing.unit,
+                unit=normalize_unit(ing.unit),
                 preparation=preparation,
             )
         )
 
+    ensure_and_calculate(db, recipe, usda_client)
     db.commit()
     return get_owned_recipe(db, user, recipe.id)
 
@@ -109,6 +154,7 @@ def _persist_course_recipe(
     meal: PlannedMeal,
     course: PlannedMealCourse,
     recipe_create: RecipeCreate,
+    usda_client: UsdaClient | None = None,
 ) -> None:
     if recipe_create.role is not None and recipe_create.role != course.role:
         raise HTTPException(
@@ -144,7 +190,7 @@ def _persist_course_recipe(
                 recipe_id=recipe.id,
                 ingredient_id=catalog.id,
                 quantity=ing.quantity,
-                unit=ing.unit,
+                unit=normalize_unit(ing.unit),
                 preparation=preparation,
             )
         )
@@ -157,6 +203,7 @@ def _persist_course_recipe(
             role=course.role,
         )
     )
+    ensure_and_calculate(db, recipe, usda_client)
 
 
 def _clear_recipe_for_course_slot(db: Session, course_id: int) -> None:
@@ -205,6 +252,7 @@ def generate_recipe_for_course(
     user: User,
     meal: PlannedMeal,
     course: PlannedMealCourse,
+    usda_client: UsdaClient | None = None,
 ) -> None:
     _clear_recipe_for_course_slot(db, course.id)
     db.flush()
@@ -216,7 +264,7 @@ def generate_recipe_for_course(
             detail="AI returned a different number of recipes than course slots",
         )
 
-    _persist_course_recipe(db, user, meal, course, generated[0])
+    _persist_course_recipe(db, user, meal, course, generated[0], usda_client)
     meal.status = "planned"
 
 
@@ -226,6 +274,7 @@ def sync_planned_meal_courses(
     user: User,
     meal: PlannedMeal,
     incoming: list[PlannedMealCourseUpsert],
+    usda_client: UsdaClient | None = None,
 ) -> None:
     if not incoming:
         raise HTTPException(
@@ -264,7 +313,7 @@ def sync_planned_meal_courses(
             )
             db.add(row)
             db.flush()
-            generate_recipe_for_course(db, ai_client, user, meal, row)
+            generate_recipe_for_course(db, ai_client, user, meal, row, usda_client)
             continue
 
         cur = db.get(PlannedMealCourse, item.id)
@@ -284,11 +333,11 @@ def sync_planned_meal_courses(
             )
             db.add(row)
             db.flush()
-            generate_recipe_for_course(db, ai_client, user, meal, row)
+            generate_recipe_for_course(db, ai_client, user, meal, row, usda_client)
         elif cur.description != item.description:
             cur.description = item.description
             db.flush()
-            generate_recipe_for_course(db, ai_client, user, meal, cur)
+            generate_recipe_for_course(db, ai_client, user, meal, cur, usda_client)
 
 
 def generate_recipes_for_plan(
@@ -296,6 +345,7 @@ def generate_recipes_for_plan(
     db: Session,
     ai_client: AIClientBase,
     user: User,
+    usda_client: UsdaClient | None = None,
 ) -> MealPlanWeek:
     """Generate recipes for each planned meal, persist rows, and return the updated week."""
     plan = db.execute(
@@ -336,7 +386,7 @@ def generate_recipes_for_plan(
     for meal in meals:
         for course in sorted(meal.courses, key=lambda c: c.id):
             recipe_create = next(gen_iter)
-            _persist_course_recipe(db, user, meal, course, recipe_create)
+            _persist_course_recipe(db, user, meal, course, recipe_create, usda_client)
             meal.status = "planned"
 
     db.commit()

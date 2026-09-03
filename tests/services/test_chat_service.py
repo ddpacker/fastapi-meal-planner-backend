@@ -7,12 +7,13 @@ from sqlalchemy.orm import Session
 
 from app.clients.fake import FakeClient
 from app.models.chat import ChatMessage, ChatSession
-from app.models.nutrition import NutritionInfo
+from app.models.nutrition import RecipeNutrition
 from app.models.recipe import Recipe, RecipeIngredient, RecipeStep
 from app.models.user import User
 from app.schemas.recipes import RecipeCreate, RecipeIngredientCreate, RecipeStepCreate
 from app.services.chat_service import send_message
 from app.services.ingredient_service import get_or_create as get_or_create_ingredient
+from app.services.usda_client import FakeUsdaClient
 
 
 @pytest.fixture()
@@ -42,7 +43,7 @@ def recipe_session(db: Session, user: User) -> tuple[Recipe, ChatSession]:
         )
     )
     db.add(
-        NutritionInfo(
+        RecipeNutrition(
             recipe_id=recipe.id,
             calories=450,
             protein_g=35,
@@ -110,7 +111,7 @@ class TestSendMessage:
         assert messages[1].role == "assistant"
         assert messages[1].content == "Here is your updated recipe."
 
-    def test_revised_recipe_updates_recipe_and_ingredients_and_clears_stale_nutrition(
+    def test_revised_recipe_updates_recipe_and_ingredients_and_recalculates_nutrition(
         self, db: Session, user: User, recipe_session: tuple[Recipe, ChatSession]
     ):
         recipe, chat = recipe_session
@@ -129,7 +130,7 @@ class TestSendMessage:
         )
         client = FakeClient(chat_revised_recipe=revised)
 
-        send_message(chat.id, "Make it vegetarian", db, client, user)
+        send_message(chat.id, "Make it vegetarian", db, client, user, FakeUsdaClient())
 
         db.refresh(recipe)
         assert recipe.title == "Tofu Tacos"
@@ -140,12 +141,12 @@ class TestSendMessage:
         ings = list(recipe.ingredients)
         assert len(ings) == 1
         assert ings[0].ingredient.name == "tofu"
-        assert (
-            db.execute(
-                select(NutritionInfo).where(NutritionInfo.recipe_id == recipe.id)
-            ).scalar_one_or_none()
-            is None
-        )
+        assert ings[0].unit == "g"
+        nutrition = db.execute(
+            select(RecipeNutrition).where(RecipeNutrition.recipe_id == recipe.id)
+        ).scalar_one()
+        assert nutrition.source == "usda"
+        assert nutrition.calories is None
 
     def test_unknown_session_raises_404(self, db: Session, user: User):
         client = FakeClient()

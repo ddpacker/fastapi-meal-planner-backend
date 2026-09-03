@@ -25,7 +25,7 @@ every query filters by ownership.
   owning row's `user_id`:
   - `PlannedMeal` / `PlannedMealCourse` → `MealPlanWeek.user_id`
   - `GroceryItem` → `GroceryList` → `MealPlanWeek.user_id`
-  - `NutritionInfo` → `Recipe.user_id`
+  - `RecipeNutrition` → `Recipe.user_id`
 - Return **404 (not 403)** when a row exists but belongs to another user — never leak
   existence.
 - Prefer the direct `user_id` column when a row already carries one (e.g. `ChatSession` has

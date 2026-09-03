@@ -16,7 +16,7 @@ from app.models.meal_plan import (
     PlannedMealCourse,
     PlannedMealRecipe,
 )
-from app.models.nutrition import NutritionInfo
+from app.models.nutrition import RecipeNutrition
 from app.models.recipe import Recipe, RecipeIngredient
 from app.models.user import User
 from app.models.user_preferences import UserPreferences
@@ -379,7 +379,7 @@ def test_delete_me_cascades_all_related_rows(db: Session) -> None:
                 quantity=100,
                 unit="gram",
             ),
-            NutritionInfo(recipe_id=recipe.id, calories=250),
+            RecipeNutrition(recipe_id=recipe.id, calories=250),
             grocery_list,
             chat_session,
         ]
@@ -405,7 +405,7 @@ def test_delete_me_cascades_all_related_rows(db: Session) -> None:
         GroceryItem,
         Recipe,
         RecipeIngredient,
-        NutritionInfo,
+        RecipeNutrition,
         ChatSession,
         ChatMessage,
     ]

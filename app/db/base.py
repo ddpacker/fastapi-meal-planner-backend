@@ -11,7 +11,7 @@ from app.models.ingredient import Ingredient
 from app.models.recipe import Recipe, RecipeIngredient, RecipeStep
 from app.models.grocery import GroceryList, GroceryItem
 from app.models.chat import ChatSession, ChatMessage
-from app.models.nutrition import NutritionInfo
+from app.models.nutrition import IngredientNutrition, RecipeNutrition
 
 __all__ = [
     "Base",
@@ -29,7 +29,8 @@ __all__ = [
     "GroceryItem",
     "ChatSession",
     "ChatMessage",
-    "NutritionInfo",
+    "RecipeNutrition",
+    "IngredientNutrition",
     "PlannedMealRecipe",
 ]
 

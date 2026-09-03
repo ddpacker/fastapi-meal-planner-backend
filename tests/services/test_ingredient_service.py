@@ -8,6 +8,7 @@ from app.services.ingredient_service import (
     extract_preparation,
     get_or_create,
     normalize_ingredient_name,
+    normalize_unit,
 )
 
 
@@ -34,6 +35,21 @@ class TestGetOrCreateIngredient:
 
     def test_normalize_ingredient_name(self):
         assert normalize_ingredient_name("  Carrot ") == "carrot"
+
+
+class TestNormalizeUnit:
+    def test_defaults_missing_to_each(self):
+        assert normalize_unit(None) == "each"
+        assert normalize_unit("") == "each"
+        assert normalize_unit("  ") == "each"
+        assert normalize_unit("none") == "each"
+        assert normalize_unit("NULL") == "each"
+        assert normalize_unit("n/a") == "each"
+
+    def test_normalizes_real_units(self):
+        assert normalize_unit(" Gram ") == "gram"
+        assert normalize_unit("EACH") == "each"
+        assert normalize_unit("piece") == "piece"
 
 
 class TestExtractPreparation:
