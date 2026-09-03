@@ -21,3 +21,8 @@ class Ingredient(Base):
     )
 
     recipe_ingredients = relationship("RecipeIngredient", back_populates="ingredient")
+    nutrition = relationship(
+        "IngredientNutrition",
+        back_populates="ingredient",
+        uselist=False,
+    )

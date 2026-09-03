@@ -36,8 +36,8 @@ class Recipe(Base):
     ingredients = relationship(
         "RecipeIngredient", back_populates="recipe", cascade="all, delete-orphan"
     )
-    nutrition_info = relationship(
-        "NutritionInfo",
+    recipe_nutrition = relationship(
+        "RecipeNutrition",
         back_populates="recipe",
         uselist=False,
         cascade="all, delete-orphan",
@@ -72,7 +72,7 @@ class RecipeIngredient(Base):
         ForeignKey("ingredients.id"), index=True, nullable=False
     )
     quantity: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
-    unit: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    unit: Mapped[str] = mapped_column(String(50), nullable=False, default="each")
     preparation: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
