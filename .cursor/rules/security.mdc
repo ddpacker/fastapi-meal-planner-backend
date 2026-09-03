@@ -36,6 +36,6 @@ stmt = select(Recipe).where(Recipe.id == recipe_id)
 
 ## Secrets management
 
-- `SECRET_KEY`, `ANTHROPIC_API_KEY`, and `DATABASE_URL` come from environment variables only.
+- `SECRET_KEY`, `ANTHROPIC_API_KEY`, `USDA_API_KEY`, and `DATABASE_URL` come from environment variables only.
 - Load via `pydantic-settings` in `app/config.py` — never `os.environ` directly.
 - In production, secrets are stored in Azure Key Vault and mounted at container startup.
