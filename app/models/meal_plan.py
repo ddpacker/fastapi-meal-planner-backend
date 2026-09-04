@@ -1,7 +1,17 @@
 from datetime import date, datetime
 from enum import Enum
 
-from sqlalchemy import Date, DateTime, Enum as SAEnum, ForeignKey, Integer, String, Text, func
+from sqlalchemy import (
+    Date,
+    DateTime,
+    Enum as SAEnum,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
@@ -24,6 +34,9 @@ _meal_course_role_col = SAEnum(
 
 class MealPlanWeek(Base):
     __tablename__ = "meal_plan_weeks"
+    __table_args__ = (
+        UniqueConstraint("user_id", "start_date", name="uq_meal_plan_weeks_user_start"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)

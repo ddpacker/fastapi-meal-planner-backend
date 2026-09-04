@@ -18,6 +18,23 @@ from app.models.meal_plan import (
 )
 from app.models.recipe import Recipe, RecipeStep
 from app.models.user import User
+from app.services.meal_plan_service import monday_of_week
+
+
+def _valid_week_payload(
+    *,
+    weeks_ahead: int = 0,
+    title: str = "New Week",
+    planned_meals: list | None = None,
+) -> dict:
+    start = monday_of_week(datetime.date.today()) + datetime.timedelta(weeks=weeks_ahead)
+    end = start + datetime.timedelta(days=6)
+    return {
+        "start_date": start.isoformat(),
+        "end_date": end.isoformat(),
+        "title": title,
+        "planned_meals": planned_meals if planned_meals is not None else [],
+    }
 
 
 @pytest.fixture()
@@ -144,17 +161,15 @@ def test_post_meal_plan_creates_default_entree_course(
     client: TestClient,
     auth_headers: dict[str, str],
 ) -> None:
+    payload = _valid_week_payload(
+        planned_meals=[
+            {"day_index": 0, "meal_name": "Pasta Night", "status": "draft"},
+        ],
+    )
     response = client.post(
         "/meal-plans",
         headers=auth_headers,
-        json={
-            "start_date": "2026-04-14",
-            "end_date": "2026-04-20",
-            "title": "New Week",
-            "planned_meals": [
-                {"day_index": 0, "meal_name": "Pasta Night", "status": "draft"},
-            ],
-        },
+        json=payload,
     )
     assert response.status_code == 201
     meals = response.json()["planned_meals"]
@@ -169,25 +184,25 @@ def test_post_meal_plan_accepts_explicit_courses(
     client: TestClient,
     auth_headers: dict[str, str],
 ) -> None:
+    payload = _valid_week_payload(
+        weeks_ahead=1,
+        title="Multi",
+        planned_meals=[
+            {
+                "day_index": 0,
+                "meal_name": "Pork Night",
+                "status": "draft",
+                "courses": [
+                    {"role": "entree", "description": "Bourbon Apple Marinaded Pork Chop"},
+                    {"role": "side", "description": None},
+                ],
+            },
+        ],
+    )
     response = client.post(
         "/meal-plans",
         headers=auth_headers,
-        json={
-            "start_date": "2026-04-14",
-            "end_date": "2026-04-20",
-            "title": "Multi",
-            "planned_meals": [
-                {
-                    "day_index": 0,
-                    "meal_name": "Pork Night",
-                    "status": "draft",
-                    "courses": [
-                        {"role": "entree", "description": "Bourbon Apple Marinaded Pork Chop"},
-                        {"role": "side", "description": None},
-                    ],
-                },
-            ],
-        },
+        json=payload,
     )
     assert response.status_code == 201
     courses = response.json()["planned_meals"][0]["courses"]
@@ -196,6 +211,63 @@ def test_post_meal_plan_accepts_explicit_courses(
     assert roles == {"entree", "side"}
     entree = next(c for c in courses if c["role"] == "entree")
     assert entree["description"] == "Bourbon Apple Marinaded Pork Chop"
+
+
+def test_post_meal_plan_rejects_non_monday(
+    client: TestClient,
+    auth_headers: dict[str, str],
+) -> None:
+    monday = monday_of_week(datetime.date.today())
+    tuesday = monday + datetime.timedelta(days=1)
+    response = client.post(
+        "/meal-plans",
+        headers=auth_headers,
+        json={
+            "start_date": tuesday.isoformat(),
+            "end_date": (tuesday + datetime.timedelta(days=6)).isoformat(),
+            "title": "Bad",
+            "planned_meals": [],
+        },
+    )
+    assert response.status_code == 422
+    assert "Monday" in response.json()["detail"]
+
+
+def test_post_meal_plan_rejects_too_far_ahead(
+    client: TestClient,
+    auth_headers: dict[str, str],
+) -> None:
+    payload = _valid_week_payload(weeks_ahead=5, title="Too Far")
+    response = client.post("/meal-plans", headers=auth_headers, json=payload)
+    assert response.status_code == 422
+    assert "4 weeks ahead" in response.json()["detail"]
+
+
+def test_post_meal_plan_conflict_on_duplicate_week(
+    client: TestClient,
+    auth_headers: dict[str, str],
+) -> None:
+    payload = _valid_week_payload(weeks_ahead=2, title="Dup")
+    first = client.post("/meal-plans", headers=auth_headers, json=payload)
+    assert first.status_code == 201
+    second = client.post("/meal-plans", headers=auth_headers, json=payload)
+    assert second.status_code == 409
+
+
+def test_list_meal_plans_returns_summaries(
+    client: TestClient,
+    auth_headers: dict[str, str],
+    plan_with_meals: MealPlanWeek,
+) -> None:
+    response = client.get("/meal-plans", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    item = data[0]
+    assert item["id"] == plan_with_meals.id
+    assert item["meal_count"] == 2
+    assert item["has_grocery_list"] is False
+    assert "planned_meals" not in item
 
 
 def test_post_generate_recipes_requires_auth(
@@ -523,4 +595,3 @@ def test_post_generate_course_recipe_course_not_in_meal_returns_404(
     )
     assert response.status_code == 404
     assert db.execute(select(func.count()).select_from(Recipe)).scalar_one() == 0
-
