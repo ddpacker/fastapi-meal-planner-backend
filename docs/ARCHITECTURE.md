@@ -61,13 +61,16 @@ flowchart TD
 - **Meal planning & recipes**
   - `MealPlanWeek` – a weekly plan per user.
     - Fields: `id`, `user_id`, `start_date`, `end_date`, `title`, timestamps.
+    - Weeks are Monday–Sunday: `start_date` must be a Monday and `end_date` = start + 6 days.
+    - Unique on `(user_id, start_date)` — at most one plan per user per week.
+    - Create horizon: `start_date` must be the current week’s Monday (**UTC date**) or up to **4 weeks ahead** (inclusive); past weeks cannot be created via the API (existing past plans are retained and listed).
   - `PlannedMeal` – one of up to 7 meals in the week.
-    - Fields: `id`, `meal_plan_week_id`, `day_index` (0–6), `meal_name`, `status` (draft|planned), timestamps.
+    - Fields: `id`, `meal_plan_week_id`, `day_index` (0–6, Monday = 0), `meal_name`, `status` (draft|planned), timestamps.
     - Related: `PlannedMealCourse` rows (one per course slot; default is a single `entree` with null `description`).
   - `Recipe` – a recipe owned by a `User`, persisted independently of meal plans.
     - Fields: `id`, `user_id`, `title`, `servings`, `source_model`, timestamps.
     - Related: ordered `RecipeStep` rows (replaces the former free-text `instructions` blob).
-    - Recipes survive meal plan deletion and recipe regeneration. Only deleted explicitly by the user or via user account cascade.
+    - Recipes are retained when meal plans are replaced or regenerated. Only deleted explicitly by the user or via user account cascade.
   - `RecipeStep` – one ordered instruction step for a recipe.
     - Fields: `id`, `recipe_id`, `step_number`, `text`, timestamps.
   - `PlannedMealCourse` – a course slot within a planned meal (starter, entree, side, dessert).
@@ -121,11 +124,10 @@ flowchart TD
   - `PATCH /users/me/preferences` – update preferences.
 
 - **Meal plan & recipe endpoints** (`/meal-plans`, `/recipes` routers)
-  - `POST /meal-plans` – create a new weekly meal plan with up to 7 planned meals; each meal specifies a name and optional nested `courses` (default one `entree` row with null description).
-  - `GET /meal-plans` – list user’s meal plans.
-  - `GET /meal-plans/{plan_id}` – get one plan with nested `PlannedMeal` entries.
+  - `POST /meal-plans` – create a new weekly meal plan with up to 7 planned meals; each meal specifies a name and optional nested `courses` (default one `entree` row with null description). Validates Monday–Sunday dates and the 4-week create horizon; returns `409` if a plan already exists for that `start_date`.
+  - `GET /meal-plans` – list the user’s meal plans as `MealPlanWeekSummaryRead` (no nested meals; includes `meal_count`, `has_grocery_list`), ordered by `start_date` desc.
+  - `GET /meal-plans/{plan_id}` – get one plan with nested `PlannedMeal` entries (`MealPlanWeekRead`).
   - `PUT /meal-plans/{plan_id}` – update plan title or meal list.
-  - `DELETE /meal-plans/{plan_id}` – delete plan (cascades to meals and grocery list; recipes are retained).
   - `PATCH /meal-plans/{plan_id}/meals/{meal_id}` – update a single meal’s name, status, or courses list.
   - `POST /meal-plans/{plan_id}/meals/{meal_id}/courses/{course_id}/generate-recipe` – regenerate the recipe for a single course slot; calls existing service function; returns `PlannedMealRead`.
   - `POST /meal-plans/{plan_id}/generate-recipes` – generate one recipe per `PlannedMealCourse` slot via AI (meal name + role + optional description); store `Recipe` + `RecipeIngredient` + `PlannedMealRecipe` rows.

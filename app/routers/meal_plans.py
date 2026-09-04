@@ -2,6 +2,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.clients.base import AIClientBase
@@ -14,12 +15,14 @@ from app.models.user import User
 from app.schemas.meal_plans import (
     MealPlanWeekCreate,
     MealPlanWeekRead,
+    MealPlanWeekSummaryRead,
     MealPlanWeekUpdate,
     PlannedMealCourseCreate,
     PlannedMealRead,
     PlannedMealUpdate,
 )
 from app.services import recipe_service
+from app.services.meal_plan_service import validate_meal_plan_week_dates
 from app.services.usda_client import UsdaClient, get_usda_client
 
 
@@ -37,6 +40,26 @@ def _plan_load():
 def _meal_load():
     return selectinload(PlannedMeal.courses).selectinload(
         PlannedMealCourse.planned_meal_recipes
+    )
+
+
+def _summary_load():
+    return (
+        selectinload(MealPlanWeek.planned_meals),
+        selectinload(MealPlanWeek.grocery_lists),
+    )
+
+
+def _to_summary(plan: MealPlanWeek) -> MealPlanWeekSummaryRead:
+    return MealPlanWeekSummaryRead(
+        id=plan.id,
+        start_date=plan.start_date,
+        end_date=plan.end_date,
+        title=plan.title,
+        created_at=plan.created_at,
+        updated_at=plan.updated_at,
+        meal_count=len(plan.planned_meals),
+        has_grocery_list=len(plan.grocery_lists) > 0,
     )
 
 
@@ -70,6 +93,14 @@ def create_meal_plan_week(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> MealPlanWeek:
+    try:
+        validate_meal_plan_week_dates(plan_in.start_date, plan_in.end_date)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+
     plan = MealPlanWeek(
         user_id=current_user.id,
         start_date=plan_in.start_date,
@@ -77,7 +108,14 @@ def create_meal_plan_week(
         title=plan_in.title,
     )
     db.add(plan)
-    db.flush()  # ensure plan.id before creating meals
+    try:
+        db.flush()  # ensure plan.id before creating meals
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A meal plan already exists for this week",
+        ) from exc
 
     for meal_in in plan_in.planned_meals:
         meal = PlannedMeal(
@@ -96,19 +134,20 @@ def create_meal_plan_week(
     ).scalar_one()
 
 
-@router.get("", response_model=List[MealPlanWeekRead])
+@router.get("", response_model=List[MealPlanWeekSummaryRead])
 def list_meal_plans(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> list[MealPlanWeek]:
-    return list(
+) -> list[MealPlanWeekSummaryRead]:
+    plans = list(
         db.execute(
             select(MealPlanWeek)
             .where(MealPlanWeek.user_id == current_user.id)
-            .options(_plan_load())
+            .options(*_summary_load())
             .order_by(MealPlanWeek.start_date.desc())
         ).scalars().all()
     )
+    return [_to_summary(plan) for plan in plans]
 
 
 @router.get("/{plan_id}", response_model=MealPlanWeekRead)

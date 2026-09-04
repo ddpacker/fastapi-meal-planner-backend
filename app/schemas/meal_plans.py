@@ -85,3 +85,13 @@ class MealPlanWeekRead(MealPlanWeekBase):
     created_at: datetime
     updated_at: datetime
     planned_meals: List[PlannedMealRead] = Field(default_factory=list)
+
+
+class MealPlanWeekSummaryRead(MealPlanWeekBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    meal_count: int
+    has_grocery_list: bool
